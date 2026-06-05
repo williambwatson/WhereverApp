@@ -8,6 +8,16 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,900&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+<!-- ════════════════════════════════════════════════════════════════════
+     ▼▼▼  PASTE YOUR GOOGLE PLACES API KEY BETWEEN THE QUOTES BELOW  ▼▼▼
+     This is the ONLY line you need to change to make the app work.
+     ════════════════════════════════════════════════════════════════════ -->
+<script>
+  window.GOOGLE_PLACES_KEY = "AIzaSyDgYB3xDkQoa50TfkoKa1FpjFYO_7uJCLw";
+</script>
+<!-- ▲▲▲  that's it — leave everything else alone  ▲▲▲ -->
+
 <style>
   :root{
     --wine:#2a0e1f;
@@ -19,6 +29,7 @@
     --cream-dim:#d8bda8;
     --rose:#ff7e9d;
     --green:#5fd0a0;
+    --gold:#ffce5c;
     --card-radius:28px;
     --ease:cubic-bezier(.22,1,.36,1);
   }
@@ -36,7 +47,6 @@
     text-rendering:optimizeLegibility;
   }
 
-  /* atmosphere: warm radial glows + grain */
   .bg{position:fixed;inset:0;z-index:0;pointer-events:none;}
   .bg::before{
     content:"";position:absolute;inset:0;
@@ -46,14 +56,13 @@
       radial-gradient(80% 60% at 0% 100%, rgba(255,162,77,.14), transparent 60%),
       linear-gradient(180deg, var(--wine-2), var(--wine) 60%);
   }
-  .bg::after{ /* grain */
+  .bg::after{
     content:"";position:absolute;inset:0;opacity:.06;mix-blend-mode:overlay;
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   }
 
   .app{
-    position:relative;z-index:1;
-    height:100%;
+    position:relative;z-index:1;height:100%;
     display:flex;flex-direction:column;
     padding:
       calc(env(safe-area-inset-top) + 18px)
@@ -63,7 +72,6 @@
     max-width:520px;margin:0 auto;width:100%;
   }
 
-  /* header */
   header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex:0 0 auto;}
   .brand{
     font-family:"Fraunces",serif;font-weight:900;font-size:clamp(26px,8vw,34px);
@@ -74,16 +82,15 @@
   .brand .dot{color:var(--ember);-webkit-text-fill-color:var(--ember);}
   .tag{font-size:12px;color:var(--cream-dim);letter-spacing:.02em;text-align:right;max-width:46%;}
 
-  /* screen plumbing */
   .stage{flex:1 1 auto;position:relative;display:flex;flex-direction:column;min-height:0;}
   .screen{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
     opacity:0;visibility:hidden;transition:opacity .45s var(--ease);text-align:center;gap:18px;padding:8px 4px;}
   .screen.on{opacity:1;visibility:visible;}
 
-  /* welcome */
   .lede{font-family:"Fraunces",serif;font-weight:400;font-size:clamp(30px,9vw,46px);line-height:1.04;letter-spacing:-.02em;}
   .lede em{font-style:italic;color:var(--ember-2);}
-  .sub{color:var(--cream-dim);max-width:30ch;font-size:15.5px;line-height:1.5;}
+  .sub{color:var(--cream-dim);max-width:32ch;font-size:15.5px;line-height:1.5;}
+  .sub code{background:rgba(253,238,222,.1);padding:1px 6px;border-radius:6px;font-size:13px;}
 
   .btn{
     font-family:"Outfit";font-weight:600;font-size:17px;color:var(--wine);
@@ -91,19 +98,13 @@
     border:none;border-radius:999px;padding:16px 30px;cursor:pointer;
     box-shadow:0 12px 30px -8px rgba(255,106,61,.6), inset 0 1px 0 rgba(255,255,255,.4);
     transition:transform .15s var(--ease), box-shadow .2s var(--ease);
-    touch-action:manipulation;
-    text-decoration:none;display:inline-block;text-align:center;
+    touch-action:manipulation;text-decoration:none;display:inline-block;text-align:center;
   }
   .btn:active{transform:scale(.96);}
-  .btn.ghost{
-    background:transparent;color:var(--cream);
-    border:1.5px solid rgba(253,238,222,.28);box-shadow:none;font-weight:500;
-  }
+  .btn.ghost{background:transparent;color:var(--cream);border:1.5px solid rgba(253,238,222,.28);box-shadow:none;font-weight:500;}
   .btn.ghost:active{background:rgba(253,238,222,.06);}
 
-  /* loading */
-  .spinner{width:54px;height:54px;border-radius:50%;border:4px solid rgba(255,106,61,.2);
-    border-top-color:var(--ember);animation:spin 1s linear infinite;}
+  .spinner{width:54px;height:54px;border-radius:50%;border:4px solid rgba(255,106,61,.2);border-top-color:var(--ember);animation:spin 1s linear infinite;}
   @keyframes spin{to{transform:rotate(360deg);}}
 
   /* card stack */
@@ -111,41 +112,41 @@
   .deck{position:relative;flex:1 1 auto;width:100%;margin:6px 0 4px;min-height:0;display:flex;align-items:center;justify-content:center;}
   .card{
     position:absolute;inset:0;margin:auto;
-    width:100%;max-width:380px;height:min(64vh,560px);
-    border-radius:var(--card-radius);
+    width:100%;max-width:380px;height:min(66vh,580px);
+    border-radius:var(--card-radius);overflow:hidden;
     background:linear-gradient(165deg,var(--plum),var(--wine-2));
     border:1px solid rgba(255,255,255,.08);
     box-shadow:0 30px 60px -20px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,255,255,.07);
-    padding:26px;display:flex;flex-direction:column;justify-content:flex-end;
-    overflow:hidden;will-change:transform;touch-action:none;cursor:grab;
-    transform-origin:center bottom;
-    user-select:none;-webkit-user-select:none;
+    will-change:transform;touch-action:none;cursor:grab;
+    transform-origin:center bottom;user-select:none;-webkit-user-select:none;
   }
   .card:active{cursor:grabbing;}
-  .card .glow{position:absolute;inset:0;background:radial-gradient(90% 60% at 50% 0%,rgba(255,162,77,.22),transparent 60%);pointer-events:none;}
-  .card .num{position:absolute;top:22px;left:24px;font-family:"Fraunces";font-weight:900;font-size:60px;color:rgba(255,255,255,.07);line-height:1;}
-  .card .cuisine-chip{
-    align-self:flex-start;font-size:12.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
-    color:var(--ember-2);background:rgba(255,106,61,.12);border:1px solid rgba(255,106,61,.28);
-    padding:6px 12px;border-radius:999px;margin-bottom:14px;
-  }
-  .card h2{font-family:"Fraunces";font-weight:600;font-size:clamp(28px,8vw,40px);line-height:1.05;letter-spacing:-.01em;}
-  .card .meta{margin-top:12px;display:flex;flex-wrap:wrap;gap:8px 16px;color:var(--cream-dim);font-size:14.5px;}
+  .card .photo{position:absolute;inset:0;background-size:cover;background-position:center;background-repeat:no-repeat;}
+  .card .photo.empty{display:flex;align-items:center;justify-content:center;font-size:64px;
+    background:radial-gradient(120% 80% at 50% 20%, rgba(255,162,77,.25), transparent 60%), linear-gradient(165deg,var(--plum),var(--wine-2));}
+  .card .scrim{position:absolute;inset:0;background:linear-gradient(to top, rgba(20,6,15,.96) 0%, rgba(20,6,15,.82) 26%, rgba(20,6,15,.18) 55%, rgba(20,6,15,0) 75%);}
+  .card-body{position:absolute;left:0;right:0;bottom:0;padding:22px 24px 24px;display:flex;flex-direction:column;gap:9px;}
+  .row-top{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .cuisine-chip{font-size:11.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+    color:var(--ember-2);background:rgba(255,106,61,.16);border:1px solid rgba(255,106,61,.32);padding:5px 11px;border-radius:999px;}
+  .rating{font-size:14px;font-weight:600;color:var(--gold);white-space:nowrap;}
+  .rating em{color:var(--cream-dim);font-style:normal;font-weight:400;font-size:12.5px;}
+  .card h2{font-family:"Fraunces";font-weight:600;font-size:clamp(26px,7.5vw,36px);line-height:1.04;letter-spacing:-.01em;text-shadow:0 2px 14px rgba(0,0,0,.5);}
+  .card .meta{display:flex;flex-wrap:wrap;gap:6px 14px;color:var(--cream-dim);font-size:14px;}
   .card .meta b{color:var(--cream);font-weight:600;}
+  .card .desc{font-size:14px;line-height:1.45;color:#f1ddca;}
+  .card .review{font-size:13.5px;line-height:1.45;color:#e7cdba;font-style:italic;
+    border-left:2px solid rgba(255,206,92,.5);padding-left:10px;margin-top:2px;display:none;}
+  .card .review .rev-author{display:block;font-style:normal;font-size:12px;color:var(--cream-dim);margin-top:3px;}
 
-  /* swipe verdict stamps */
-  .stamp{position:absolute;top:30px;font-family:"Fraunces";font-weight:900;font-size:30px;letter-spacing:.04em;
+  .stamp{position:absolute;top:26px;z-index:5;font-family:"Fraunces";font-weight:900;font-size:30px;letter-spacing:.04em;
     padding:8px 16px;border-radius:14px;border:3px solid currentColor;opacity:0;transform:rotate(-12deg);}
   .stamp.yes{right:24px;color:var(--green);transform:rotate(12deg);}
   .stamp.no{left:24px;color:var(--rose);}
 
   .controls{flex:0 0 auto;display:flex;align-items:center;justify-content:center;gap:26px;padding:6px 0 2px;}
-  .round{
-    width:66px;height:66px;border-radius:50%;border:none;cursor:pointer;
-    display:grid;place-items:center;font-size:26px;color:var(--cream);
-    background:rgba(253,238,222,.06);border:1.5px solid rgba(253,238,222,.16);
-    transition:transform .15s var(--ease), background .2s;touch-action:manipulation;
-  }
+  .round{width:66px;height:66px;border-radius:50%;border:none;cursor:pointer;display:grid;place-items:center;font-size:26px;color:var(--cream);
+    background:rgba(253,238,222,.06);border:1.5px solid rgba(253,238,222,.16);transition:transform .15s var(--ease), background .2s;touch-action:manipulation;}
   .round:active{transform:scale(.9);}
   .round.no{color:var(--rose);}
   .round.no:active{background:rgba(255,126,157,.16);}
@@ -153,7 +154,6 @@
   .round.yes:active{background:rgba(95,208,160,.16);}
   .hint{flex:0 0 auto;text-align:center;font-size:12.5px;color:var(--cream-dim);opacity:.8;padding-top:4px;}
 
-  /* match */
   .match-burst{font-family:"Fraunces";font-weight:900;font-size:clamp(34px,11vw,56px);line-height:1;letter-spacing:-.02em;
     background:linear-gradient(95deg,var(--ember-2),var(--rose));-webkit-background-clip:text;background-clip:text;color:transparent;}
   .match-name{font-family:"Fraunces";font-weight:600;font-size:clamp(26px,8vw,38px);line-height:1.08;}
@@ -167,7 +167,6 @@
   .stack-up>*:nth-child(3){animation-delay:.16s;}
   .stack-up>*:nth-child(4){animation-delay:.24s;}
   @keyframes up{from{opacity:0;transform:translateY(18px);}to{opacity:1;transform:none;}}
-
   .col{display:flex;flex-direction:column;align-items:center;gap:16px;}
 </style>
 </head>
@@ -180,17 +179,14 @@
   </header>
 
   <main class="stage">
-
-    <!-- WELCOME -->
     <section class="screen on" id="welcome-screen">
       <div class="col stack-up">
         <div class="lede">Hungry,<br>but <em>undecided?</em></div>
-        <p class="sub">Tap once. We'll find the spots near you and you swipe until one feels right. No more "I don't know, where do <em>you</em> want to go?"</p>
+        <p class="sub">Tap once. We'll find the spots near you — photos, ratings, what people say — and you swipe until one feels right.</p>
         <button class="btn" id="start-btn">Find us dinner →</button>
       </div>
     </section>
 
-    <!-- LOADING -->
     <section class="screen" id="loading-screen">
       <div class="col">
         <div class="spinner"></div>
@@ -198,7 +194,6 @@
       </div>
     </section>
 
-    <!-- STACK -->
     <section class="screen" id="stack-screen">
       <div class="deck" id="deck"></div>
       <div class="controls">
@@ -208,18 +203,16 @@
       <p class="hint">Swipe right to pick · left to pass</p>
     </section>
 
-    <!-- MATCH -->
     <section class="screen" id="match-screen">
       <div class="col">
         <div class="match-burst pop">It's dinner!</div>
         <div class="match-name" id="match-name"></div>
         <div class="match-meta" id="match-meta"></div>
-        <a class="btn" id="maps-btn" target="_blank" rel="noopener">Open in Apple Maps</a>
+        <a class="btn" id="maps-btn" target="_blank" rel="noopener">Open in Maps →</a>
         <button class="btn ghost" id="keep-btn">Keep looking</button>
       </div>
     </section>
 
-    <!-- EMPTY / ERROR -->
     <section class="screen" id="error-screen">
       <div class="col">
         <div class="err-emoji" id="err-emoji">🍽️</div>
@@ -229,26 +222,31 @@
         <button class="btn ghost" id="wider-btn" hidden>Search a wider area</button>
       </div>
     </section>
-
   </main>
 </div>
+
+<!-- Google Maps dynamic library loader (official bootstrap). Uses your key above. -->
+<script>
+  (g=>{var h,a,k,p="The Google Maps JavaScript API",c="google",l="importLibrary",q="__ib__",m=document,b=window;b=b[c]||(b[c]={});var d=b.maps||(b.maps={}),r=new Set,e=new URLSearchParams,u=()=>h||(h=new Promise(async(f,n)=>{await (a=m.createElement("script"));e.set("libraries",[...r]+"");for(k in g)e.set(k.replace(/[A-Z]/g,t=>"_"+t[0].toLowerCase()),g[k]);e.set("callback",c+".maps."+q);a.src=`https://maps.${c}apis.com/maps/api/js?`+e;d[q]=f;a.onerror=()=>h=n(Error(p+" could not load."));a.nonce=m.querySelector("script[nonce]")?.nonce||"";m.head.append(a)}));d[l]?console.warn(p+" only loads once. Ignoring:",g):d[l]=(f,...n)=>r.add(f)&&u().then(()=>d[l](f,...n))})({
+    key: window.GOOGLE_PLACES_KEY,
+    v: "weekly",
+  });
+</script>
 
 <script>
 (() => {
   "use strict";
 
   // ---------- config ----------
-  const OVERPASS = "https://overpass-api.de/api/interpreter";
   const RADII = [2000, 5000, 12000];   // metres; "search wider" walks this up
-  const MAX_CARDS = 30;
+  const MAX_CARDS = 20;                // Google nearby-search returns up to 20
 
   // ---------- state ----------
-  let coords = null;          // {lat, lon}
+  let coords = null;          // {lat, lng}
   let radiusIdx = 0;
   let queue = [];             // restaurants still to show
-  const seen = new Set();     // ids already shown this session
+  const seen = new Set();
 
-  // ---------- screen switching ----------
   const screens = {
     welcome: document.getElementById("welcome-screen"),
     loading: document.getElementById("loading-screen"),
@@ -256,45 +254,45 @@
     match:   document.getElementById("match-screen"),
     error:   document.getElementById("error-screen"),
   };
-  function show(name){
-    for (const k in screens) screens[k].classList.toggle("on", k === name);
-  }
+  function show(name){ for (const k in screens) screens[k].classList.toggle("on", k === name); }
 
   // ---------- helpers ----------
   function haversineMiles(a, b){
     const R = 3958.8, toRad = d => d * Math.PI / 180;
     const dLat = toRad(b.lat - a.lat);
-    const dLon = toRad(b.lon - a.lon);
-    const s = Math.sin(dLat/2)**2 +
-              Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLon/2)**2;
+    const dLng = toRad(b.lng - a.lng);
+    const s = Math.sin(dLat/2)**2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng/2)**2;
     return R * 2 * Math.asin(Math.sqrt(s));
   }
   function fmtDist(mi){
     if (mi < 0.1) return Math.round(mi * 5280) + " ft away";
     return mi.toFixed(mi < 10 ? 1 : 0) + " mi away";
   }
-  function titleCase(s){
-    return s.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+  function latLngOf(loc){
+    if (!loc) return null;
+    const lat = typeof loc.lat === "function" ? loc.lat() : loc.lat;
+    const lng = typeof loc.lng === "function" ? loc.lng() : loc.lng;
+    return { lat, lng };
   }
-  function prettyCuisine(tags){
-    if (!tags) return "Restaurant";
-    if (tags.cuisine) return titleCase(tags.cuisine.split(/[;,]/)[0].trim());
-    if (tags.amenity === "fast_food") return "Fast food";
-    return "Restaurant";
+  function priceDollars(p){
+    if (p == null) return "";
+    const map = { FREE:"", INEXPENSIVE:"$", MODERATE:"$$", EXPENSIVE:"$$$", VERY_EXPENSIVE:"$$$$" };
+    if (typeof p === "string") return map[p.replace("PRICE_LEVEL_","")] ?? "";
+    return "$".repeat(Math.max(0, Math.min(4, p)));
   }
-  function shuffleNearbyBias(arr){
-    // sort nearest-first, then lightly jitter so order isn't identical every time
-    arr.sort((a, b) => a.dist - b.dist);
-    for (let i = arr.length - 1; i > 0; i--){
-      if (Math.abs(arr[i].dist - arr[i-1].dist) < 0.15 && Math.round(arr[i].lat*1e4) % 2 === 0){
-        [arr[i], arr[i-1]] = [arr[i-1], arr[i]];
-      }
-    }
+  function summaryText(s){ return (typeof s === "string") ? s : (s && s.text) || ""; }
+  function truncate(t, n){ t = (t||"").trim(); return t.length > n ? t.slice(0, n).trim() + "…" : t; }
+  function esc(s){ const d = document.createElement("div"); d.textContent = s ?? ""; return d.innerHTML; }
+  function shuffle(arr){
+    for (let i = arr.length - 1; i > 0; i--){ const j = (i * 7 + 3) % (i + 1); [arr[i], arr[j]] = [arr[j], arr[i]]; }
     return arr;
   }
 
   // ---------- geolocation ----------
   function getLocation(){
+    if (!window.GOOGLE_PLACES_KEY || /PASTE_YOUR_KEY/.test(window.GOOGLE_PLACES_KEY)){
+      return errorScreen("🔑", "Add your API key", "Open index.html and paste your Google Places key into the line near the top that says window.GOOGLE_PLACES_KEY. Then commit and refresh.", false);
+    }
     show("loading");
     document.getElementById("loading-text").textContent = "Finding where you are…";
     if (!navigator.geolocation){
@@ -302,7 +300,7 @@
     }
     navigator.geolocation.getCurrentPosition(
       pos => {
-        coords = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+        coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         radiusIdx = 0; seen.clear();
         loadRestaurants();
       },
@@ -317,47 +315,49 @@
     );
   }
 
-  // ---------- overpass fetch ----------
+  // ---------- google places ----------
   async function loadRestaurants(){
     show("loading");
     document.getElementById("loading-text").textContent = "Sniffing out nearby spots…";
-    const r = RADII[radiusIdx];
-    const q = `[out:json][timeout:25];
-( node["amenity"~"restaurant|fast_food"](around:${r},${coords.lat},${coords.lon});
-  way["amenity"~"restaurant|fast_food"](around:${r},${coords.lat},${coords.lon}); );
-out center ${MAX_CARDS + 20};`;
     try {
-      const res = await fetch(OVERPASS, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain;charset=UTF-8" },
-        body: q,
+      const { Place, SearchNearbyRankPreference } = await google.maps.importLibrary("places");
+      const { places } = await Place.searchNearby({
+        fields: ["displayName","location","photos","rating","userRatingCount",
+                 "primaryTypeDisplayName","editorialSummary","priceLevel","googleMapsURI"],
+        locationRestriction: { center: coords, radius: RADII[radiusIdx] },
+        includedPrimaryTypes: ["restaurant"],
+        maxResultCount: MAX_CARDS,
+        rankPreference: SearchNearbyRankPreference.POPULARITY,
       });
-      if (!res.ok) throw new Error("overpass " + res.status);
-      const data = await res.json();
-      const list = (data.elements || [])
-        .map(el => {
-          const lat = el.lat ?? el.center?.lat;
-          const lon = el.lon ?? el.center?.lon;
-          const name = el.tags?.name;
-          if (!name || lat == null || lon == null) return null;
-          const id = el.type + "/" + el.id;
-          if (seen.has(id)) return null;
-          return {
-            id, name, lat, lon, tags: el.tags,
-            cuisine: prettyCuisine(el.tags),
-            dist: haversineMiles(coords, { lat, lon }),
-          };
-        })
-        .filter(Boolean)
-        .filter(x => x.dist <= (r / 1609.34) + 0.3);
+
+      const list = (places || []).map(place => {
+        const ll = latLngOf(place.location);
+        if (!ll) return null;
+        let photo = "";
+        try { photo = place.photos?.[0]?.getURI({ maxWidth: 900 }) || ""; } catch(e){}
+        return {
+          place, photo,
+          name: place.displayName || "A restaurant",
+          cuisine: place.primaryTypeDisplayName || "Restaurant",
+          rating: place.rating || null,
+          count: place.userRatingCount || 0,
+          price: priceDollars(place.priceLevel),
+          desc: summaryText(place.editorialSummary),
+          maps: place.googleMapsURI || `https://www.google.com/maps/search/?api=1&query=${ll.lat},${ll.lng}`,
+          lat: ll.lat, lng: ll.lng,
+          dist: haversineMiles(coords, ll),
+          reviewLoaded: false,
+        };
+      }).filter(Boolean);
 
       if (!list.length){
         return errorScreen("🤷", "Nothing nearby", "We couldn't find restaurants in this radius. Want to cast a wider net?", radiusIdx < RADII.length - 1);
       }
-      queue = shuffleNearbyBias(list).slice(0, MAX_CARDS);
+      queue = shuffle(list);
       buildDeck();
     } catch (e){
-      errorScreen("🌐", "Connection hiccup", "The restaurant service is busy or offline. Give it another shot in a second.", false);
+      console.error(e);
+      errorScreen("🌐", "Couldn't reach Google", "The places service didn't load. Check that your API key is valid, billing is on, and the key allows this site. Then try again.", false);
     }
   }
 
@@ -366,66 +366,86 @@ out center ${MAX_CARDS + 20};`;
 
   function buildDeck(){
     deck.innerHTML = "";
-    // render up to 3 cards for depth; top card is last in DOM
     const slice = queue.slice(0, 3).reverse();
     slice.forEach((rest, i) => {
-      const depth = slice.length - 1 - i; // 0 = top
+      const depth = slice.length - 1 - i;
       deck.appendChild(makeCard(rest, depth));
     });
     show("stack");
     const top = deck.lastElementChild;
-    if (top) attachDrag(top);
+    if (top){
+      attachDrag(top);
+      const topRest = queue[0];
+      if (topRest) fillReviews(topRest, top);
+    }
   }
 
   function makeCard(rest, depth){
     const card = document.createElement("div");
     card.className = "card";
-    card.dataset.id = rest.id;
+    card.dataset.id = String(queue.indexOf(rest));
     const scale = 1 - depth * 0.04;
-    const ty = depth * 14;
-    card.style.transform = `translateY(${ty}px) scale(${scale})`;
+    card.style.transform = `translateY(${depth * 14}px) scale(${scale})`;
     card.style.zIndex = String(50 - depth);
     card.style.opacity = depth > 1 ? "0" : "1";
 
-    const open = rest.tags?.opening_hours;
+    const photoHtml = rest.photo
+      ? `<div class="photo" style="background-image:url('${rest.photo.replace(/'/g, "%27")}')"></div>`
+      : `<div class="photo empty">🍽️</div>`;
+    const ratingHtml = rest.rating
+      ? `<span class="rating">★ ${rest.rating.toFixed(1)} <em>(${rest.count})</em></span>` : "";
+    const metaBits = [`<span><b>${fmtDist(rest.dist)}</b></span>`];
+    if (rest.price) metaBits.push(`<span>${rest.price}</span>`);
+
     card.innerHTML = `
-      <div class="glow"></div>
-      <div class="num">${(queue.indexOf(rest) + 1).toString().padStart(2,"0")}</div>
+      ${photoHtml}
+      <div class="scrim"></div>
       <div class="stamp yes">Let's go</div>
       <div class="stamp no">Nope</div>
-      <div class="cuisine-chip">${esc(rest.cuisine)}</div>
-      <h2>${esc(rest.name)}</h2>
-      <div class="meta">
-        <span><b>${fmtDist(rest.dist)}</b></span>
-        ${open ? `<span>${esc(openSummary(open))}</span>` : ""}
+      <div class="card-body">
+        <div class="row-top">
+          <span class="cuisine-chip">${esc(rest.cuisine)}</span>
+          ${ratingHtml}
+        </div>
+        <h2>${esc(rest.name)}</h2>
+        <div class="meta">${metaBits.join("")}</div>
+        ${rest.desc ? `<p class="desc">${esc(truncate(rest.desc, 110))}</p>` : ""}
+        <p class="review"><span class="rev-text"></span><span class="rev-author"></span></p>
       </div>`;
     return card;
   }
 
-  function openSummary(oh){
-    if (/24\/7/.test(oh)) return "Open 24/7";
-    return oh.length > 22 ? "See hours in Maps" : oh;
+  // lazily pull one review for the visible card (keeps API usage low)
+  async function fillReviews(rest, cardEl){
+    if (rest.reviewLoaded) return;
+    rest.reviewLoaded = true;
+    try {
+      await rest.place.fetchFields({ fields: ["reviews"] });
+      const r = (rest.place.reviews || [])[0];
+      const text = summaryText(r && r.text);
+      if (r && text){
+        const author = r.authorAttribution?.displayName || "A diner";
+        const box = cardEl.querySelector(".review");
+        if (box){
+          box.querySelector(".rev-text").textContent = "“" + truncate(text, 130) + "”";
+          box.querySelector(".rev-author").textContent = "— " + author;
+          box.style.display = "block";
+        }
+      }
+    } catch(e){ /* reviews are optional; ignore */ }
   }
-  function esc(s){ const d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
 
   // ---------- swipe / drag ----------
   function attachDrag(card){
     let startX = 0, startY = 0, dx = 0, dy = 0, dragging = false, id = null;
-
     const yes = card.querySelector(".stamp.yes");
     const no  = card.querySelector(".stamp.no");
 
-    const down = e => {
-      dragging = true; id = e.pointerId;
-      startX = e.clientX; startY = e.clientY; dx = 0; dy = 0;
-      card.style.transition = "none";
-      card.setPointerCapture?.(id);
-    };
+    const down = e => { dragging = true; id = e.pointerId; startX = e.clientX; startY = e.clientY; dx = 0; dy = 0; card.style.transition = "none"; card.setPointerCapture?.(id); };
     const move = e => {
       if (!dragging) return;
       dx = e.clientX - startX; dy = e.clientY - startY;
-      const rot = dx / 18;
-      card.style.transform = `translate(${dx}px, ${dy}px) rotate(${rot}deg)`;
+      card.style.transform = `translate(${dx}px, ${dy}px) rotate(${dx/18}deg)`;
       const k = Math.min(Math.abs(dx) / 110, 1);
       yes.style.opacity = dx > 0 ? k : 0;
       no.style.opacity  = dx < 0 ? k : 0;
@@ -434,15 +454,10 @@ out center ${MAX_CARDS + 20};`;
       if (!dragging) return;
       dragging = false;
       card.style.transition = "transform .4s var(--ease)";
-      const threshold = 95;
-      if (dx > threshold) commit(card, "yes");
-      else if (dx < -threshold) commit(card, "no");
-      else {
-        card.style.transform = "translateY(0) scale(1)";
-        yes.style.opacity = 0; no.style.opacity = 0;
-      }
+      if (dx > 95) commit(card, "yes");
+      else if (dx < -95) commit(card, "no");
+      else { card.style.transform = "translateY(0) scale(1)"; yes.style.opacity = 0; no.style.opacity = 0; }
     };
-
     card.addEventListener("pointerdown", down);
     card.addEventListener("pointermove", move);
     card.addEventListener("pointerup", up);
@@ -450,13 +465,12 @@ out center ${MAX_CARDS + 20};`;
   }
 
   function commit(card, verdict){
-    const id = card.dataset.id;
-    const rest = queue.find(r => r.id === id);
+    const idx = Number(card.dataset.id);
+    const rest = queue[idx];
     const fly = verdict === "yes" ? 1 : -1;
     card.style.transform = `translate(${fly * 600}px, -40px) rotate(${fly * 28}deg)`;
     card.style.opacity = "0";
-    if (rest) seen.add(rest.id);
-    queue = queue.filter(r => r.id !== id);
+    if (rest) { seen.add(rest.name); queue = queue.filter((_, i) => i !== idx); }
 
     setTimeout(() => {
       if (verdict === "yes" && rest){ openMatch(rest); return; }
@@ -468,7 +482,6 @@ out center ${MAX_CARDS + 20};`;
     }, 280);
   }
 
-  // programmatic swipe from buttons
   function buttonSwipe(verdict){
     const top = deck.lastElementChild;
     if (!top) return;
@@ -480,10 +493,9 @@ out center ${MAX_CARDS + 20};`;
   function openMatch(rest){
     document.getElementById("match-name").textContent = rest.name;
     const bits = [rest.cuisine, fmtDist(rest.dist)];
+    if (rest.rating) bits.push("★ " + rest.rating.toFixed(1));
     document.getElementById("match-meta").textContent = bits.join(" · ");
-    const q = encodeURIComponent(rest.name);
-    document.getElementById("maps-btn").href =
-      `https://maps.apple.com/?q=${q}&ll=${rest.lat},${rest.lon}`;
+    document.getElementById("maps-btn").href = rest.maps;
     const burst = document.querySelector(".match-burst");
     burst.classList.remove("pop"); void burst.offsetWidth; burst.classList.add("pop");
     show("match");
@@ -507,13 +519,8 @@ out center ${MAX_CARDS + 20};`;
     else if (radiusIdx < RADII.length - 1){ radiusIdx++; loadRestaurants(); }
     else getLocation();
   });
-  document.getElementById("retry-btn").addEventListener("click", () => {
-    if (coords) loadRestaurants(); else getLocation();
-  });
-  document.getElementById("wider-btn").addEventListener("click", () => {
-    if (radiusIdx < RADII.length - 1) radiusIdx++;
-    loadRestaurants();
-  });
+  document.getElementById("retry-btn").addEventListener("click", () => { if (coords) loadRestaurants(); else getLocation(); });
+  document.getElementById("wider-btn").addEventListener("click", () => { if (radiusIdx < RADII.length - 1) radiusIdx++; loadRestaurants(); });
 })();
 </script>
 </body>
