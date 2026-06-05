@@ -90,6 +90,10 @@
   .btn:active{transform:scale(.96);}
   .btn.ghost{background:transparent;color:var(--cream);border:1.5px solid rgba(251,234,255,.3);box-shadow:none;font-weight:600;}
   .btn.ghost:active{background:rgba(251,234,255,.07);}
+  .btn.alt{color:#062a26;background:linear-gradient(120deg,var(--mint),#46d8ff);
+    box-shadow:0 12px 30px -8px rgba(51,224,168,.5), inset 0 1px 0 rgba(255,255,255,.4);}
+  .mode-row{display:flex;flex-direction:column;gap:12px;width:100%;max-width:300px;}
+  .mode-row .btn{width:100%;}
 
   .spinner{width:54px;height:54px;border-radius:50%;border:4px solid rgba(255,106,213,.2);border-top-color:var(--pink);animation:spin 1s linear infinite;}
   @keyframes spin{to{transform:rotate(360deg);}}
@@ -176,9 +180,12 @@
   <main class="stage">
     <section class="screen on" id="welcome-screen">
       <div class="col stack-up">
-        <div class="lede">Hungry,<br>but <em>undecided?</em></div>
-        <p class="sub">Tap once. We'll find the spots near you — photos, ratings, what people say — and you swipe until one feels right.</p>
-        <button class="btn" id="start-btn">Find us dinner →</button>
+        <div class="lede">Can't<br><em>decide?</em></div>
+        <p class="sub">Pick a vibe — we'll find spots near you with photos, ratings &amp; reviews, and you swipe till one feels right.</p>
+        <div class="mode-row">
+          <button class="btn" id="mode-food">🍽️ Let's eat</button>
+          <button class="btn alt" id="mode-play">🎢 Do something</button>
+        </div>
       </div>
     </section>
 
@@ -237,7 +244,33 @@
   const RADII = [2000, 5000, 12000];   // metres; "search wider" walks this up
   const MAX_CARDS = 20;                // Google nearby-search returns up to 20
 
+  // Two vibes. Food filters OUT grocery/convenience stores and keeps fast food in;
+  // Activities looks for things to do nearby.
+  const MODES = {
+    food: {
+      includedTypes: ["restaurant", "fast_food_restaurant", "meal_takeaway"],
+      excludedPrimaryTypes: ["grocery_store", "supermarket", "convenience_store", "gas_station", "liquor_store"],
+      loading: "Sniffing out nearby bites…",
+      none: "We couldn't find places to eat in this radius. Want to cast a wider net?",
+      burst: "It's dinner!",
+      siteLabel: "View menu →",
+      fallbackEmoji: "🍴",
+    },
+    play: {
+      includedTypes: ["tourist_attraction","amusement_park","amusement_center","bowling_alley",
+        "movie_theater","art_gallery","museum","aquarium","zoo","night_club","park",
+        "casino","performing_arts_theater","hiking_area"],
+      excludedPrimaryTypes: [],
+      loading: "Scouting things to do nearby…",
+      none: "We couldn't find activities in this radius. Want to cast a wider net?",
+      burst: "Let's do it!",
+      siteLabel: "Visit website →",
+      fallbackEmoji: "🎉",
+    },
+  };
+
   // ---------- state ----------
+  let mode = "food";
   let coords = null;          // {lat, lng}
   let radiusIdx = 0;
   let queue = [];             // restaurants still to show
@@ -296,19 +329,26 @@
     for (let i = arr.length - 1; i > 0; i--){ const j = (i * 7 + 3) % (i + 1); [arr[i], arr[j]] = [arr[j], arr[i]]; }
     return arr;
   }
-  // pick a fitting food emoji for places with no photo, so the card never looks blank
-  function cuisineEmoji(c){
+  // pick a fitting emoji for places with no photo, so the card never looks blank
+  function typeEmoji(c){
     c = (c || "").toLowerCase();
-    const map = [["pizza","🍕"],["sushi","🍣"],["japanese","🍣"],["ramen","🍜"],["noodle","🍜"],
+    const map = [
+      // food
+      ["pizza","🍕"],["sushi","🍣"],["japanese","🍣"],["ramen","🍜"],["noodle","🍜"],
       ["chinese","🥡"],["thai","🍜"],["mexican","🌮"],["taco","🌮"],["taqueria","🌮"],["burger","🍔"],
       ["american","🍔"],["steak","🥩"],["bbq","🍖"],["barbecue","🍖"],["seafood","🦐"],["indian","🍛"],
       ["curry","🍛"],["italian","🍝"],["pasta","🍝"],["french","🥐"],["bakery","🥐"],["cafe","☕"],
       ["coffee","☕"],["breakfast","🍳"],["brunch","🍳"],["sandwich","🥪"],["deli","🥪"],["vegan","🥗"],
       ["vegetarian","🥗"],["salad","🥗"],["ice cream","🍦"],["dessert","🍰"],["bar","🍻"],["pub","🍺"],
       ["wine","🍷"],["korean","🍲"],["vietnamese","🍜"],["mediterranean","🥙"],["greek","🥙"],
-      ["donut","🍩"],["chicken","🍗"]];
+      ["donut","🍩"],["chicken","🍗"],
+      // activities
+      ["bowling","🎳"],["movie","🎬"],["cinema","🎬"],["museum","🏛️"],["art","🎨"],["gallery","🎨"],
+      ["park","🌳"],["garden","🌳"],["zoo","🦁"],["aquarium","🐠"],["amusement","🎢"],["arcade","🕹️"],
+      ["night club","🪩"],["club","🪩"],["theater","🎭"],["theatre","🎭"],["performing","🎭"],
+      ["casino","🎰"],["stadium","🏟️"],["hiking","🥾"],["trail","🥾"],["spa","💆"]];
     for (const [k, e] of map) if (c.includes(k)) return e;
-    return "🍴";
+    return MODES[mode].fallbackEmoji;
   }
 
   // ---------- geolocation ----------
@@ -341,20 +381,21 @@
   // ---------- google places ----------
   async function loadRestaurants(){
     show("loading");
-    document.getElementById("loading-text").textContent = "Sniffing out nearby spots…";
+    document.getElementById("loading-text").textContent = MODES[mode].loading;
     try {
       const { Place, SearchNearbyRankPreference } = await google.maps.importLibrary("places");
-      const { places } = await Place.searchNearby({
+      const req = {
         fields: ["displayName","location","photos","rating","userRatingCount",
                  "primaryTypeDisplayName","editorialSummary","priceLevel","priceRange",
                  "websiteURI","googleMapsURI"],
         locationRestriction: { center: coords, radius: RADII[radiusIdx] },
-        // includedTypes (not includedPrimaryTypes) so pizza places, taquerias, sushi
-        // bars, cafes, takeout etc. all show up — not just generic "restaurant".
-        includedTypes: ["restaurant","meal_takeaway","cafe","bakery","bar"],
+        includedTypes: MODES[mode].includedTypes,
         maxResultCount: MAX_CARDS,
         rankPreference: SearchNearbyRankPreference.POPULARITY,
-      });
+      };
+      // exclude grocery/convenience stores etc. so they don't masquerade as eateries
+      if (MODES[mode].excludedPrimaryTypes.length) req.excludedPrimaryTypes = MODES[mode].excludedPrimaryTypes;
+      const { places } = await Place.searchNearby(req);
 
       const list = (places || []).map(place => {
         const ll = latLngOf(place.location);
@@ -378,7 +419,7 @@
       }).filter(Boolean);
 
       if (!list.length){
-        return errorScreen("🤷", "Nothing nearby", "We couldn't find restaurants in this radius. Want to cast a wider net?", radiusIdx < RADII.length - 1);
+        return errorScreen("🤷", "Nothing nearby", MODES[mode].none, radiusIdx < RADII.length - 1);
       }
       queue = shuffle(list);
       buildDeck();
@@ -418,7 +459,7 @@
 
     const photoHtml = rest.photo
       ? `<div class="photo" style="background-image:url('${rest.photo.replace(/'/g, "%27")}')"></div>`
-      : `<div class="photo empty">${cuisineEmoji(rest.cuisine)}</div>`;
+      : `<div class="photo empty">${typeEmoji(rest.cuisine)}</div>`;
     const ratingHtml = rest.rating
       ? `<span class="rating">★ ${rest.rating.toFixed(1)} <em>(${rest.count})</em></span>` : "";
     const metaBits = [`<span><b>${fmtDist(rest.dist)}</b></span>`];
@@ -525,8 +566,9 @@
     document.getElementById("match-meta").textContent = bits.join(" · ");
     document.getElementById("maps-btn").href = rest.maps;
     const site = document.getElementById("site-btn");
-    if (rest.website){ site.href = rest.website; site.hidden = false; } else { site.hidden = true; }
+    if (rest.website){ site.href = rest.website; site.textContent = MODES[mode].siteLabel; site.hidden = false; } else { site.hidden = true; }
     const burst = document.querySelector(".match-burst");
+    burst.textContent = MODES[mode].burst;
     burst.classList.remove("pop"); void burst.offsetWidth; burst.classList.add("pop");
     show("match");
   }
@@ -541,7 +583,8 @@
   }
 
   // ---------- wiring ----------
-  document.getElementById("start-btn").addEventListener("click", getLocation);
+  document.getElementById("mode-food").addEventListener("click", () => { mode = "food"; getLocation(); });
+  document.getElementById("mode-play").addEventListener("click", () => { mode = "play"; getLocation(); });
   document.getElementById("no-btn").addEventListener("click", () => buttonSwipe("no"));
   document.getElementById("yes-btn").addEventListener("click", () => buttonSwipe("yes"));
   document.getElementById("keep-btn").addEventListener("click", () => {
