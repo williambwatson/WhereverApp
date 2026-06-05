@@ -379,25 +379,52 @@
   }
 
   // ---------- google places ----------
+  // Google's Nearby Search returns at most 20 places per call. To get *almost every*
+  // place around you, tile the area into an overlapping grid and run one search per
+  // tile in parallel, then merge + de-duplicate by place id.
+  async function searchAllNearby(Place, rank){
+    const m = MODES[mode];
+    const fields = ["id","displayName","location","photos","rating","userRatingCount",
+                    "primaryTypeDisplayName","editorialSummary","priceLevel","priceRange",
+                    "websiteURI","googleMapsURI"];
+    const overall = RADII[radiusIdx];
+    const step = Math.round(overall / 2);        // ~5 tiles per axis (~21 searches)
+    const cell = Math.round(overall * 0.6);      // each tile's radius (tiles overlap)
+    const cosLat = Math.cos(coords.lat * Math.PI / 180) || 1;
+    const pts = [];
+    for (let dx = -overall; dx <= overall; dx += step){
+      for (let dy = -overall; dy <= overall; dy += step){
+        if (Math.hypot(dx, dy) > overall + cell * 0.4) continue;   // keep it roughly circular
+        pts.push({ lat: coords.lat + dy / 111320, lng: coords.lng + dx / (111320 * cosLat) });
+      }
+    }
+    if (!pts.length) pts.push(coords);
+    const makeReq = (center) => {
+      const r = { fields, locationRestriction: { center, radius: cell },
+        includedTypes: m.includedTypes, maxResultCount: 20, rankPreference: rank.POPULARITY };
+      if (m.excludedPrimaryTypes.length) r.excludedPrimaryTypes = m.excludedPrimaryTypes;
+      return r;
+    };
+    const batches = await Promise.all(pts.map(p =>
+      Place.searchNearby(makeReq(p)).then(x => x.places || []).catch(() => [])
+    ));
+    const byId = new Map();
+    for (const arr of batches) for (const pl of arr){
+      const ll = latLngOf(pl.location);
+      const key = pl.id || (pl.displayName + "@" + (ll ? ll.lat.toFixed(5) + "," + ll.lng.toFixed(5) : ""));
+      if (!byId.has(key)) byId.set(key, pl);
+    }
+    return [...byId.values()];
+  }
+
   async function loadRestaurants(){
     show("loading");
     document.getElementById("loading-text").textContent = MODES[mode].loading;
     try {
       const { Place, SearchNearbyRankPreference } = await google.maps.importLibrary("places");
-      const req = {
-        fields: ["displayName","location","photos","rating","userRatingCount",
-                 "primaryTypeDisplayName","editorialSummary","priceLevel","priceRange",
-                 "websiteURI","googleMapsURI"],
-        locationRestriction: { center: coords, radius: RADII[radiusIdx] },
-        includedTypes: MODES[mode].includedTypes,
-        maxResultCount: MAX_CARDS,
-        rankPreference: SearchNearbyRankPreference.POPULARITY,
-      };
-      // exclude grocery/convenience stores etc. so they don't masquerade as eateries
-      if (MODES[mode].excludedPrimaryTypes.length) req.excludedPrimaryTypes = MODES[mode].excludedPrimaryTypes;
-      const { places } = await Place.searchNearby(req);
+      const places = await searchAllNearby(Place, SearchNearbyRankPreference);
 
-      const list = (places || []).map(place => {
+      const list = places.map(place => {
         const ll = latLngOf(place.location);
         if (!ll) return null;
         let photo = "";
@@ -421,7 +448,8 @@
       if (!list.length){
         return errorScreen("🤷", "Nothing nearby", MODES[mode].none, radiusIdx < RADII.length - 1);
       }
-      queue = shuffle(list);
+      list.sort((a, b) => a.dist - b.dist);   // nearest first — show everything around you
+      queue = list.filter(r => !seen.has(r.name));
       buildDeck();
     } catch (e){
       console.error(e);
