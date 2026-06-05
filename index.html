@@ -92,8 +92,10 @@
   .btn.ghost:active{background:rgba(251,234,255,.07);}
   .btn.alt{color:#062a26;background:linear-gradient(120deg,var(--mint),#46d8ff);
     box-shadow:0 12px 30px -8px rgba(51,224,168,.5), inset 0 1px 0 rgba(255,255,255,.4);}
-  .mode-row{display:flex;flex-direction:column;gap:12px;width:100%;max-width:300px;}
-  .mode-row .btn{width:100%;}
+  .mode-row{display:flex;flex-direction:column;gap:12px;width:100%;max-width:320px;}
+  .mode-row .btn{width:100%;display:inline-flex;align-items:center;justify-content:center;gap:10px;}
+  .ico{width:21px;height:21px;flex:0 0 auto;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;}
+  .ico .fill{fill:currentColor;stroke:none;}
 
   .spinner{width:54px;height:54px;border-radius:50%;border:4px solid rgba(255,106,213,.2);border-top-color:var(--pink);animation:spin 1s linear infinite;}
   @keyframes spin{to{transform:rotate(360deg);}}
@@ -101,7 +103,7 @@
   /* card stack */
   #stack-screen{justify-content:flex-start;}
   .deck{position:relative;flex:1 1 auto;width:100%;margin:6px 0 4px;min-height:0;display:flex;align-items:center;justify-content:center;}
-  .card{position:absolute;inset:0;margin:auto;width:100%;max-width:380px;height:min(66vh,580px);
+  .card{position:absolute;inset:0;margin:auto;width:100%;max-width:380px;max-height:560px;
     border-radius:var(--card-radius);overflow:hidden;
     background:linear-gradient(165deg,var(--panel),var(--panel-2));
     border:1px solid rgba(255,255,255,.1);
@@ -181,10 +183,16 @@
     <section class="screen on" id="welcome-screen">
       <div class="col stack-up">
         <div class="lede">Can't<br><em>decide?</em></div>
-        <p class="sub">Pick a vibe — we'll find spots near you with photos, ratings &amp; reviews, and you swipe till one feels right.</p>
+        <p class="sub">Pick one below. We'll show you real places nearby — swipe right to keep, left to skip, until you both agree.</p>
         <div class="mode-row">
-          <button class="btn" id="mode-food">🍽️ Let's eat</button>
-          <button class="btn alt" id="mode-play">🎢 Do something</button>
+          <button class="btn" id="mode-food">
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="5.4"/><line x1="4.3" y1="3.5" x2="4.3" y2="20.5"/><line x1="19.7" y1="3.5" x2="19.7" y2="20.5"/></svg>
+            Grab a bite
+          </button>
+          <button class="btn alt" id="mode-play">
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><polygon class="fill" points="15.6,8.4 10.4,10.4 8.4,15.6 13.6,13.6"/></svg>
+            Find something to do
+          </button>
         </div>
       </div>
     </section>
