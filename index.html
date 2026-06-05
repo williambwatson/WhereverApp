@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+<meta name="theme-color" content="#2a0e1f" />
+<title>Wherever — let's just pick a place</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,900&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --wine:#2a0e1f;
+    --wine-2:#3d1329;
+    --plum:#481634;
+    --ember:#ff6a3d;
+    --ember-2:#ffa24d;
+    --cream:#fdeede;
+    --cream-dim:#d8bda8;
+    --rose:#ff7e9d;
+    --green:#5fd0a0;
+    --card-radius:28px;
+    --ease:cubic-bezier(.22,1,.36,1);
+  }
+
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    font-family:"Outfit",system-ui,sans-serif;
+    color:var(--cream);
+    background:var(--wine);
+    overflow:hidden;
+    position:fixed;
+    inset:0;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+  }
+
+  /* atmosphere: warm radial glows + grain */
+  .bg{position:fixed;inset:0;z-index:0;pointer-events:none;}
+  .bg::before{
+    content:"";position:absolute;inset:0;
+    background:
+      radial-gradient(120% 80% at 50% -10%, rgba(255,106,61,.32), transparent 55%),
+      radial-gradient(90% 70% at 100% 110%, rgba(255,126,157,.20), transparent 60%),
+      radial-gradient(80% 60% at 0% 100%, rgba(255,162,77,.14), transparent 60%),
+      linear-gradient(180deg, var(--wine-2), var(--wine) 60%);
+  }
+  .bg::after{ /* grain */
+    content:"";position:absolute;inset:0;opacity:.06;mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  .app{
+    position:relative;z-index:1;
+    height:100%;
+    display:flex;flex-direction:column;
+    padding:
+      calc(env(safe-area-inset-top) + 18px)
+      calc(env(safe-area-inset-right) + 20px)
+      calc(env(safe-area-inset-bottom) + 18px)
+      calc(env(safe-area-inset-left) + 20px);
+    max-width:520px;margin:0 auto;width:100%;
+  }
+
+  /* header */
+  header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex:0 0 auto;}
+  .brand{
+    font-family:"Fraunces",serif;font-weight:900;font-size:clamp(26px,8vw,34px);
+    letter-spacing:-.02em;line-height:1;
+    background:linear-gradient(95deg,var(--cream),var(--ember-2));
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  .brand .dot{color:var(--ember);-webkit-text-fill-color:var(--ember);}
+  .tag{font-size:12px;color:var(--cream-dim);letter-spacing:.02em;text-align:right;max-width:46%;}
+
+  /* screen plumbing */
+  .stage{flex:1 1 auto;position:relative;display:flex;flex-direction:column;min-height:0;}
+  .screen{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    opacity:0;visibility:hidden;transition:opacity .45s var(--ease);text-align:center;gap:18px;padding:8px 4px;}
+  .screen.on{opacity:1;visibility:visible;}
+
+  /* welcome */
+  .lede{font-family:"Fraunces",serif;font-weight:400;font-size:clamp(30px,9vw,46px);line-height:1.04;letter-spacing:-.02em;}
+  .lede em{font-style:italic;color:var(--ember-2);}
+  .sub{color:var(--cream-dim);max-width:30ch;font-size:15.5px;line-height:1.5;}
+
+  .btn{
+    font-family:"Outfit";font-weight:600;font-size:17px;color:var(--wine);
+    background:linear-gradient(180deg,var(--ember-2),var(--ember));
+    border:none;border-radius:999px;padding:16px 30px;cursor:pointer;
+    box-shadow:0 12px 30px -8px rgba(255,106,61,.6), inset 0 1px 0 rgba(255,255,255,.4);
+    transition:transform .15s var(--ease), box-shadow .2s var(--ease);
+    touch-action:manipulation;
+    text-decoration:none;display:inline-block;text-align:center;
+  }
+  .btn:active{transform:scale(.96);}
+  .btn.ghost{
+    background:transparent;color:var(--cream);
+    border:1.5px solid rgba(253,238,222,.28);box-shadow:none;font-weight:500;
+  }
+  .btn.ghost:active{background:rgba(253,238,222,.06);}
+
+  /* loading */
+  .spinner{width:54px;height:54px;border-radius:50%;border:4px solid rgba(255,106,61,.2);
+    border-top-color:var(--ember);animation:spin 1s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  /* card stack */
+  #stack-screen{justify-content:flex-start;}
+  .deck{position:relative;flex:1 1 auto;width:100%;margin:6px 0 4px;min-height:0;display:flex;align-items:center;justify-content:center;}
+  .card{
+    position:absolute;inset:0;margin:auto;
+    width:100%;max-width:380px;height:min(64vh,560px);
+    border-radius:var(--card-radius);
+    background:linear-gradient(165deg,var(--plum),var(--wine-2));
+    border:1px solid rgba(255,255,255,.08);
+    box-shadow:0 30px 60px -20px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,255,255,.07);
+    padding:26px;display:flex;flex-direction:column;justify-content:flex-end;
+    overflow:hidden;will-change:transform;touch-action:none;cursor:grab;
+    transform-origin:center bottom;
+    user-select:none;-webkit-user-select:none;
+  }
+  .card:active{cursor:grabbing;}
+  .card .glow{position:absolute;inset:0;background:radial-gradient(90% 60% at 50% 0%,rgba(255,162,77,.22),transparent 60%);pointer-events:none;}
+  .card .num{position:absolute;top:22px;left:24px;font-family:"Fraunces";font-weight:900;font-size:60px;color:rgba(255,255,255,.07);line-height:1;}
+  .card .cuisine-chip{
+    align-self:flex-start;font-size:12.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--ember-2);background:rgba(255,106,61,.12);border:1px solid rgba(255,106,61,.28);
+    padding:6px 12px;border-radius:999px;margin-bottom:14px;
+  }
+  .card h2{font-family:"Fraunces";font-weight:600;font-size:clamp(28px,8vw,40px);line-height:1.05;letter-spacing:-.01em;}
+  .card .meta{margin-top:12px;display:flex;flex-wrap:wrap;gap:8px 16px;color:var(--cream-dim);font-size:14.5px;}
+  .card .meta b{color:var(--cream);font-weight:600;}
+
+  /* swipe verdict stamps */
+  .stamp{position:absolute;top:30px;font-family:"Fraunces";font-weight:900;font-size:30px;letter-spacing:.04em;
+    padding:8px 16px;border-radius:14px;border:3px solid currentColor;opacity:0;transform:rotate(-12deg);}
+  .stamp.yes{right:24px;color:var(--green);transform:rotate(12deg);}
+  .stamp.no{left:24px;color:var(--rose);}
+
+  .controls{flex:0 0 auto;display:flex;align-items:center;justify-content:center;gap:26px;padding:6px 0 2px;}
+  .round{
+    width:66px;height:66px;border-radius:50%;border:none;cursor:pointer;
+    display:grid;place-items:center;font-size:26px;color:var(--cream);
+    background:rgba(253,238,222,.06);border:1.5px solid rgba(253,238,222,.16);
+    transition:transform .15s var(--ease), background .2s;touch-action:manipulation;
+  }
+  .round:active{transform:scale(.9);}
+  .round.no{color:var(--rose);}
+  .round.no:active{background:rgba(255,126,157,.16);}
+  .round.yes{color:var(--green);width:78px;height:78px;font-size:32px;}
+  .round.yes:active{background:rgba(95,208,160,.16);}
+  .hint{flex:0 0 auto;text-align:center;font-size:12.5px;color:var(--cream-dim);opacity:.8;padding-top:4px;}
+
+  /* match */
+  .match-burst{font-family:"Fraunces";font-weight:900;font-size:clamp(34px,11vw,56px);line-height:1;letter-spacing:-.02em;
+    background:linear-gradient(95deg,var(--ember-2),var(--rose));-webkit-background-clip:text;background-clip:text;color:transparent;}
+  .match-name{font-family:"Fraunces";font-weight:600;font-size:clamp(26px,8vw,38px);line-height:1.08;}
+  .match-meta{color:var(--cream-dim);font-size:15px;}
+  .pop{animation:pop .6s var(--ease) both;}
+  @keyframes pop{0%{transform:scale(.6);opacity:0;}60%{transform:scale(1.05);}100%{transform:scale(1);opacity:1;}}
+
+  .err-emoji{font-size:46px;}
+  .stack-up>*{animation:up .6s var(--ease) both;}
+  .stack-up>*:nth-child(2){animation-delay:.08s;}
+  .stack-up>*:nth-child(3){animation-delay:.16s;}
+  .stack-up>*:nth-child(4){animation-delay:.24s;}
+  @keyframes up{from{opacity:0;transform:translateY(18px);}to{opacity:1;transform:none;}}
+
+  .col{display:flex;flex-direction:column;align-items:center;gap:16px;}
+</style>
+</head>
+<body>
+<div class="bg"></div>
+<div class="app">
+  <header>
+    <div class="brand">Wherever<span class="dot">.</span></div>
+    <div class="tag">for when neither of you can just <em>pick a place</em></div>
+  </header>
+
+  <main class="stage">
+
+    <!-- WELCOME -->
+    <section class="screen on" id="welcome-screen">
+      <div class="col stack-up">
+        <div class="lede">Hungry,<br>but <em>undecided?</em></div>
+        <p class="sub">Tap once. We'll find the spots near you and you swipe until one feels right. No more "I don't know, where do <em>you</em> want to go?"</p>
+        <button class="btn" id="start-btn">Find us dinner →</button>
+      </div>
+    </section>
+
+    <!-- LOADING -->
+    <section class="screen" id="loading-screen">
+      <div class="col">
+        <div class="spinner"></div>
+        <p class="sub" id="loading-text">Finding where you are…</p>
+      </div>
+    </section>
+
+    <!-- STACK -->
+    <section class="screen" id="stack-screen">
+      <div class="deck" id="deck"></div>
+      <div class="controls">
+        <button class="round no" id="no-btn" aria-label="Pass">✕</button>
+        <button class="round yes" id="yes-btn" aria-label="Pick this">♥</button>
+      </div>
+      <p class="hint">Swipe right to pick · left to pass</p>
+    </section>
+
+    <!-- MATCH -->
+    <section class="screen" id="match-screen">
+      <div class="col">
+        <div class="match-burst pop">It's dinner!</div>
+        <div class="match-name" id="match-name"></div>
+        <div class="match-meta" id="match-meta"></div>
+        <a class="btn" id="maps-btn" target="_blank" rel="noopener">Open in Apple Maps</a>
+        <button class="btn ghost" id="keep-btn">Keep looking</button>
+      </div>
+    </section>
+
+    <!-- EMPTY / ERROR -->
+    <section class="screen" id="error-screen">
+      <div class="col">
+        <div class="err-emoji" id="err-emoji">🍽️</div>
+        <div class="lede" id="err-title" style="font-size:clamp(24px,7vw,34px)">Hmm.</div>
+        <p class="sub" id="err-text"></p>
+        <button class="btn" id="retry-btn">Try again</button>
+        <button class="btn ghost" id="wider-btn" hidden>Search a wider area</button>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  // ---------- config ----------
+  const OVERPASS = "https://overpass-api.de/api/interpreter";
+  const RADII = [2000, 5000, 12000];   // metres; "search wider" walks this up
+  const MAX_CARDS = 30;
+
+  // ---------- state ----------
+  let coords = null;          // {lat, lon}
+  let radiusIdx = 0;
+  let queue = [];             // restaurants still to show
+  const seen = new Set();     // ids already shown this session
+
+  // ---------- screen switching ----------
+  const screens = {
+    welcome: document.getElementById("welcome-screen"),
+    loading: document.getElementById("loading-screen"),
+    stack:   document.getElementById("stack-screen"),
+    match:   document.getElementById("match-screen"),
+    error:   document.getElementById("error-screen"),
+  };
+  function show(name){
+    for (const k in screens) screens[k].classList.toggle("on", k === name);
+  }
+
+  // ---------- helpers ----------
+  function haversineMiles(a, b){
+    const R = 3958.8, toRad = d => d * Math.PI / 180;
+    const dLat = toRad(b.lat - a.lat);
+    const dLon = toRad(b.lon - a.lon);
+    const s = Math.sin(dLat/2)**2 +
+              Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLon/2)**2;
+    return R * 2 * Math.asin(Math.sqrt(s));
+  }
+  function fmtDist(mi){
+    if (mi < 0.1) return Math.round(mi * 5280) + " ft away";
+    return mi.toFixed(mi < 10 ? 1 : 0) + " mi away";
+  }
+  function titleCase(s){
+    return s.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+  }
+  function prettyCuisine(tags){
+    if (!tags) return "Restaurant";
+    if (tags.cuisine) return titleCase(tags.cuisine.split(/[;,]/)[0].trim());
+    if (tags.amenity === "fast_food") return "Fast food";
+    return "Restaurant";
+  }
+  function shuffleNearbyBias(arr){
+    // sort nearest-first, then lightly jitter so order isn't identical every time
+    arr.sort((a, b) => a.dist - b.dist);
+    for (let i = arr.length - 1; i > 0; i--){
+      if (Math.abs(arr[i].dist - arr[i-1].dist) < 0.15 && Math.round(arr[i].lat*1e4) % 2 === 0){
+        [arr[i], arr[i-1]] = [arr[i-1], arr[i]];
+      }
+    }
+    return arr;
+  }
+
+  // ---------- geolocation ----------
+  function getLocation(){
+    show("loading");
+    document.getElementById("loading-text").textContent = "Finding where you are…";
+    if (!navigator.geolocation){
+      return errorScreen("📍", "No location support", "This browser can't share your location. Try Safari or Chrome.", false);
+    }
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        coords = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+        radiusIdx = 0; seen.clear();
+        loadRestaurants();
+      },
+      err => {
+        if (err.code === err.PERMISSION_DENIED){
+          errorScreen("📍", "Location is off", "We need your location to find places nearby. Enable it for this site and tap try again.", false);
+        } else {
+          errorScreen("📡", "Couldn't get a fix", "Your location couldn't be read. Step outside or try again in a moment.", false);
+        }
+      },
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
+    );
+  }
+
+  // ---------- overpass fetch ----------
+  async function loadRestaurants(){
+    show("loading");
+    document.getElementById("loading-text").textContent = "Sniffing out nearby spots…";
+    const r = RADII[radiusIdx];
+    const q = `[out:json][timeout:25];
+( node["amenity"~"restaurant|fast_food"](around:${r},${coords.lat},${coords.lon});
+  way["amenity"~"restaurant|fast_food"](around:${r},${coords.lat},${coords.lon}); );
+out center ${MAX_CARDS + 20};`;
+    try {
+      const res = await fetch(OVERPASS, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=UTF-8" },
+        body: q,
+      });
+      if (!res.ok) throw new Error("overpass " + res.status);
+      const data = await res.json();
+      const list = (data.elements || [])
+        .map(el => {
+          const lat = el.lat ?? el.center?.lat;
+          const lon = el.lon ?? el.center?.lon;
+          const name = el.tags?.name;
+          if (!name || lat == null || lon == null) return null;
+          const id = el.type + "/" + el.id;
+          if (seen.has(id)) return null;
+          return {
+            id, name, lat, lon, tags: el.tags,
+            cuisine: prettyCuisine(el.tags),
+            dist: haversineMiles(coords, { lat, lon }),
+          };
+        })
+        .filter(Boolean)
+        .filter(x => x.dist <= (r / 1609.34) + 0.3);
+
+      if (!list.length){
+        return errorScreen("🤷", "Nothing nearby", "We couldn't find restaurants in this radius. Want to cast a wider net?", radiusIdx < RADII.length - 1);
+      }
+      queue = shuffleNearbyBias(list).slice(0, MAX_CARDS);
+      buildDeck();
+    } catch (e){
+      errorScreen("🌐", "Connection hiccup", "The restaurant service is busy or offline. Give it another shot in a second.", false);
+    }
+  }
+
+  // ---------- deck / cards ----------
+  const deck = document.getElementById("deck");
+
+  function buildDeck(){
+    deck.innerHTML = "";
+    // render up to 3 cards for depth; top card is last in DOM
+    const slice = queue.slice(0, 3).reverse();
+    slice.forEach((rest, i) => {
+      const depth = slice.length - 1 - i; // 0 = top
+      deck.appendChild(makeCard(rest, depth));
+    });
+    show("stack");
+    const top = deck.lastElementChild;
+    if (top) attachDrag(top);
+  }
+
+  function makeCard(rest, depth){
+    const card = document.createElement("div");
+    card.className = "card";
+    card.dataset.id = rest.id;
+    const scale = 1 - depth * 0.04;
+    const ty = depth * 14;
+    card.style.transform = `translateY(${ty}px) scale(${scale})`;
+    card.style.zIndex = String(50 - depth);
+    card.style.opacity = depth > 1 ? "0" : "1";
+
+    const open = rest.tags?.opening_hours;
+    card.innerHTML = `
+      <div class="glow"></div>
+      <div class="num">${(queue.indexOf(rest) + 1).toString().padStart(2,"0")}</div>
+      <div class="stamp yes">Let's go</div>
+      <div class="stamp no">Nope</div>
+      <div class="cuisine-chip">${esc(rest.cuisine)}</div>
+      <h2>${esc(rest.name)}</h2>
+      <div class="meta">
+        <span><b>${fmtDist(rest.dist)}</b></span>
+        ${open ? `<span>${esc(openSummary(open))}</span>` : ""}
+      </div>`;
+    return card;
+  }
+
+  function openSummary(oh){
+    if (/24\/7/.test(oh)) return "Open 24/7";
+    return oh.length > 22 ? "See hours in Maps" : oh;
+  }
+  function esc(s){ const d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
+
+  // ---------- swipe / drag ----------
+  function attachDrag(card){
+    let startX = 0, startY = 0, dx = 0, dy = 0, dragging = false, id = null;
+
+    const yes = card.querySelector(".stamp.yes");
+    const no  = card.querySelector(".stamp.no");
+
+    const down = e => {
+      dragging = true; id = e.pointerId;
+      startX = e.clientX; startY = e.clientY; dx = 0; dy = 0;
+      card.style.transition = "none";
+      card.setPointerCapture?.(id);
+    };
+    const move = e => {
+      if (!dragging) return;
+      dx = e.clientX - startX; dy = e.clientY - startY;
+      const rot = dx / 18;
+      card.style.transform = `translate(${dx}px, ${dy}px) rotate(${rot}deg)`;
+      const k = Math.min(Math.abs(dx) / 110, 1);
+      yes.style.opacity = dx > 0 ? k : 0;
+      no.style.opacity  = dx < 0 ? k : 0;
+    };
+    const up = () => {
+      if (!dragging) return;
+      dragging = false;
+      card.style.transition = "transform .4s var(--ease)";
+      const threshold = 95;
+      if (dx > threshold) commit(card, "yes");
+      else if (dx < -threshold) commit(card, "no");
+      else {
+        card.style.transform = "translateY(0) scale(1)";
+        yes.style.opacity = 0; no.style.opacity = 0;
+      }
+    };
+
+    card.addEventListener("pointerdown", down);
+    card.addEventListener("pointermove", move);
+    card.addEventListener("pointerup", up);
+    card.addEventListener("pointercancel", up);
+  }
+
+  function commit(card, verdict){
+    const id = card.dataset.id;
+    const rest = queue.find(r => r.id === id);
+    const fly = verdict === "yes" ? 1 : -1;
+    card.style.transform = `translate(${fly * 600}px, -40px) rotate(${fly * 28}deg)`;
+    card.style.opacity = "0";
+    if (rest) seen.add(rest.id);
+    queue = queue.filter(r => r.id !== id);
+
+    setTimeout(() => {
+      if (verdict === "yes" && rest){ openMatch(rest); return; }
+      if (!queue.length){
+        errorScreen("🍀", "That's everyone", "You passed on all the nearby spots! Cast a wider net or start fresh.", radiusIdx < RADII.length - 1);
+        return;
+      }
+      buildDeck();
+    }, 280);
+  }
+
+  // programmatic swipe from buttons
+  function buttonSwipe(verdict){
+    const top = deck.lastElementChild;
+    if (!top) return;
+    top.style.transition = "transform .4s var(--ease), opacity .4s var(--ease)";
+    commit(top, verdict);
+  }
+
+  // ---------- match ----------
+  function openMatch(rest){
+    document.getElementById("match-name").textContent = rest.name;
+    const bits = [rest.cuisine, fmtDist(rest.dist)];
+    document.getElementById("match-meta").textContent = bits.join(" · ");
+    const q = encodeURIComponent(rest.name);
+    document.getElementById("maps-btn").href =
+      `https://maps.apple.com/?q=${q}&ll=${rest.lat},${rest.lon}`;
+    const burst = document.querySelector(".match-burst");
+    burst.classList.remove("pop"); void burst.offsetWidth; burst.classList.add("pop");
+    show("match");
+  }
+
+  // ---------- error / empty ----------
+  function errorScreen(emoji, title, text, allowWider){
+    document.getElementById("err-emoji").textContent = emoji;
+    document.getElementById("err-title").textContent = title;
+    document.getElementById("err-text").textContent = text;
+    document.getElementById("wider-btn").hidden = !allowWider;
+    show("error");
+  }
+
+  // ---------- wiring ----------
+  document.getElementById("start-btn").addEventListener("click", getLocation);
+  document.getElementById("no-btn").addEventListener("click", () => buttonSwipe("no"));
+  document.getElementById("yes-btn").addEventListener("click", () => buttonSwipe("yes"));
+  document.getElementById("keep-btn").addEventListener("click", () => {
+    if (queue.length) buildDeck();
+    else if (radiusIdx < RADII.length - 1){ radiusIdx++; loadRestaurants(); }
+    else getLocation();
+  });
+  document.getElementById("retry-btn").addEventListener("click", () => {
+    if (coords) loadRestaurants(); else getLocation();
+  });
+  document.getElementById("wider-btn").addEventListener("click", () => {
+    if (radiusIdx < RADII.length - 1) radiusIdx++;
+    loadRestaurants();
+  });
+})();
+</script>
+</body>
+</html>
