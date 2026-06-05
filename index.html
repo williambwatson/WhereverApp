@@ -209,6 +209,7 @@
         <div class="match-name" id="match-name"></div>
         <div class="match-meta" id="match-meta"></div>
         <a class="btn" id="maps-btn" target="_blank" rel="noopener">Open in Maps →</a>
+        <a class="btn ghost" id="site-btn" target="_blank" rel="noopener" hidden>View menu / website →</a>
         <button class="btn ghost" id="keep-btn">Keep looking</button>
       </div>
     </section>
@@ -280,6 +281,19 @@
     if (typeof p === "string") return map[p.replace("PRICE_LEVEL_","")] ?? "";
     return "$".repeat(Math.max(0, Math.min(4, p)));
   }
+  function curSymbol(code){ return ({ USD:"$", CAD:"$", AUD:"$", NZD:"$", MXN:"$", EUR:"€", GBP:"£", JPY:"¥" })[code] || "$"; }
+  function moneyUnits(m){ return m && m.units != null ? Math.round(Number(m.units)) : null; }
+  function formatPrice(place){
+    const pr = place.priceRange;
+    if (pr && (pr.startPrice || pr.endPrice)){
+      const sym = curSymbol((pr.startPrice || pr.endPrice).currencyCode);
+      const lo = moneyUnits(pr.startPrice), hi = moneyUnits(pr.endPrice);
+      if (lo != null && hi != null) return `${sym}${lo}–${sym}${hi}`;
+      if (lo != null) return `${sym}${lo}+`;
+      if (hi != null) return `up to ${sym}${hi}`;
+    }
+    return priceDollars(place.priceLevel);   // fall back to $ signs
+  }
   function summaryText(s){ return (typeof s === "string") ? s : (s && s.text) || ""; }
   function truncate(t, n){ t = (t||"").trim(); return t.length > n ? t.slice(0, n).trim() + "…" : t; }
   function esc(s){ const d = document.createElement("div"); d.textContent = s ?? ""; return d.innerHTML; }
@@ -323,7 +337,8 @@
       const { Place, SearchNearbyRankPreference } = await google.maps.importLibrary("places");
       const { places } = await Place.searchNearby({
         fields: ["displayName","location","photos","rating","userRatingCount",
-                 "primaryTypeDisplayName","editorialSummary","priceLevel","googleMapsURI"],
+                 "primaryTypeDisplayName","editorialSummary","priceLevel","priceRange",
+                 "websiteURI","googleMapsURI"],
         locationRestriction: { center: coords, radius: RADII[radiusIdx] },
         includedPrimaryTypes: ["restaurant"],
         maxResultCount: MAX_CARDS,
@@ -341,8 +356,9 @@
           cuisine: place.primaryTypeDisplayName || "Restaurant",
           rating: place.rating || null,
           count: place.userRatingCount || 0,
-          price: priceDollars(place.priceLevel),
+          price: formatPrice(place),
           desc: summaryText(place.editorialSummary),
+          website: place.websiteURI || "",
           maps: place.googleMapsURI || `https://www.google.com/maps/search/?api=1&query=${ll.lat},${ll.lng}`,
           lat: ll.lat, lng: ll.lng,
           dist: haversineMiles(coords, ll),
@@ -496,6 +512,8 @@
     if (rest.rating) bits.push("★ " + rest.rating.toFixed(1));
     document.getElementById("match-meta").textContent = bits.join(" · ");
     document.getElementById("maps-btn").href = rest.maps;
+    const site = document.getElementById("site-btn");
+    if (rest.website){ site.href = rest.website; site.hidden = false; } else { site.hidden = true; }
     const burst = document.querySelector(".match-burst");
     burst.classList.remove("pop"); void burst.offsetWidth; burst.classList.add("pop");
     show("match");
