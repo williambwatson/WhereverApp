@@ -112,9 +112,11 @@
     user-select:none;-webkit-user-select:none;}
   .card:active{cursor:grabbing;}
   .card .photo{position:absolute;inset:0;background-size:cover;background-position:center;background-repeat:no-repeat;}
-  .card .photo.empty{display:flex;align-items:center;justify-content:center;font-size:84px;
+  .card .photo.empty{display:flex;align-items:center;justify-content:center;
     background:radial-gradient(120% 85% at 50% 18%, rgba(255,138,61,.4), transparent 60%), linear-gradient(160deg,var(--pink),var(--tangerine) 58%, var(--panel));
     filter:saturate(1.05);}
+  .card .photo.empty svg{width:78px;height:78px;fill:none;stroke:var(--cream);stroke-width:1.35;stroke-linecap:round;stroke-linejoin:round;opacity:.95;}
+  .card .photo.empty svg .fill{fill:var(--cream);stroke:none;}
   .card .scrim-top{position:absolute;top:0;left:0;right:0;height:150px;
     background:linear-gradient(to bottom, rgba(10,4,22,.74), rgba(10,4,22,.28) 55%, transparent);}
   .card .scrim{position:absolute;inset:0;
@@ -337,26 +339,31 @@
     for (let i = arr.length - 1; i > 0; i--){ const j = (i * 7 + 3) % (i + 1); [arr[i], arr[j]] = [arr[j], arr[i]]; }
     return arr;
   }
-  // pick a fitting emoji for places with no photo, so the card never looks blank
-  function typeEmoji(c){
-    c = (c || "").toLowerCase();
-    const map = [
-      // food
-      ["pizza","🍕"],["sushi","🍣"],["japanese","🍣"],["ramen","🍜"],["noodle","🍜"],
-      ["chinese","🥡"],["thai","🍜"],["mexican","🌮"],["taco","🌮"],["taqueria","🌮"],["burger","🍔"],
-      ["american","🍔"],["steak","🥩"],["bbq","🍖"],["barbecue","🍖"],["seafood","🦐"],["indian","🍛"],
-      ["curry","🍛"],["italian","🍝"],["pasta","🍝"],["french","🥐"],["bakery","🥐"],["cafe","☕"],
-      ["coffee","☕"],["breakfast","🍳"],["brunch","🍳"],["sandwich","🥪"],["deli","🥪"],["vegan","🥗"],
-      ["vegetarian","🥗"],["salad","🥗"],["ice cream","🍦"],["dessert","🍰"],["bar","🍻"],["pub","🍺"],
-      ["wine","🍷"],["korean","🍲"],["vietnamese","🍜"],["mediterranean","🥙"],["greek","🥙"],
-      ["donut","🍩"],["chicken","🍗"],
-      // activities
-      ["bowling","🎳"],["movie","🎬"],["cinema","🎬"],["museum","🏛️"],["art","🎨"],["gallery","🎨"],
-      ["park","🌳"],["garden","🌳"],["zoo","🦁"],["aquarium","🐠"],["amusement","🎢"],["arcade","🕹️"],
-      ["night club","🪩"],["club","🪩"],["theater","🎭"],["theatre","🎭"],["performing","🎭"],
-      ["casino","🎰"],["stadium","🏟️"],["hiking","🥾"],["trail","🥾"],["spa","💆"]];
-    for (const [k, e] of map) if (c.includes(k)) return e;
-    return MODES[mode].fallbackEmoji;
+  // simple line-icons (matching the button style) for cards that have no photo
+  const ICONS = {
+    utensils: `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5.4"/><line x1="4.3" y1="3.5" x2="4.3" y2="20.5"/><line x1="19.7" y1="3.5" x2="19.7" y2="20.5"/></svg>`,
+    pizza: `<svg viewBox="0 0 24 24"><path d="M12 3 L20 18 Q12 21.5 4 18 Z"/><circle class="fill" cx="10" cy="11" r="1.1"/><circle class="fill" cx="14" cy="12.5" r="1.1"/><circle class="fill" cx="11.5" cy="15.5" r="1.1"/></svg>`,
+    cup: `<svg viewBox="0 0 24 24"><path d="M5 8h11v6a4 4 0 0 1-4 4H9a4 4 0 0 1-4-4z"/><path d="M16 9h2.5a2.5 2.5 0 0 1 0 5H16"/><line x1="8" y1="3.5" x2="8" y2="5.5"/><line x1="12" y1="3.5" x2="12" y2="5.5"/></svg>`,
+    glass: `<svg viewBox="0 0 24 24"><path d="M4 5h16l-8 8z"/><line x1="12" y1="13" x2="12" y2="20"/><line x1="8" y1="20" x2="16" y2="20"/></svg>`,
+    bowl: `<svg viewBox="0 0 24 24"><path d="M3.5 11h17a8.5 8.5 0 0 1-17 0z"/><path d="M3.5 11 Q12 7 20.5 11"/><line x1="13.5" y1="2.8" x2="19.5" y2="8"/><line x1="16" y1="2.3" x2="21" y2="7"/></svg>`,
+    compass: `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><polygon class="fill" points="15.6,8.4 10.4,10.4 8.4,15.6 13.6,13.6"/></svg>`,
+    film: `<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><line x1="7.5" y1="5" x2="7.5" y2="19"/><line x1="16.5" y1="5" x2="16.5" y2="19"/><line x1="3" y1="12" x2="21" y2="12"/></svg>`,
+    museum: `<svg viewBox="0 0 24 24"><path d="M3 9 L12 4 L21 9 Z"/><line x1="6" y1="10" x2="6" y2="17"/><line x1="10" y1="10" x2="10" y2="17"/><line x1="14" y1="10" x2="14" y2="17"/><line x1="18" y1="10" x2="18" y2="17"/><line x1="4" y1="20" x2="20" y2="20"/></svg>`,
+    tree: `<svg viewBox="0 0 24 24"><path d="M12 3 L18 12 H6 Z"/><path d="M12 8 L19 18 H5 Z"/><line x1="12" y1="18" x2="12" y2="21"/></svg>`,
+  };
+  function typeIcon(cuisine){
+    const c = (cuisine || "").toLowerCase();
+    if (mode === "play"){
+      if (/(movie|cinema|theat|performing|amusement|arcade)/.test(c)) return ICONS.film;
+      if (/(museum|art|gallery|aquarium)/.test(c)) return ICONS.museum;
+      if (/(park|garden|zoo|hiking|trail|nature)/.test(c)) return ICONS.tree;
+      return ICONS.compass;
+    }
+    if (/(coffee|caf|breakfast|brunch|bakery|tea|dessert|donut|ice ?cream)/.test(c)) return ICONS.cup;
+    if (/(bar|pub|brewery|wine|cocktail|night ?club|lounge)/.test(c)) return ICONS.glass;
+    if (/pizza/.test(c)) return ICONS.pizza;
+    if (/(ramen|noodle|sushi|japanese|chinese|thai|vietnamese|korean|soup|pho|asian)/.test(c)) return ICONS.bowl;
+    return ICONS.utensils;
   }
 
   // ---------- geolocation ----------
@@ -495,7 +502,7 @@
 
     const photoHtml = rest.photo
       ? `<div class="photo" style="background-image:url('${rest.photo.replace(/'/g, "%27")}')"></div>`
-      : `<div class="photo empty">${typeEmoji(rest.cuisine)}</div>`;
+      : `<div class="photo empty">${typeIcon(rest.cuisine)}</div>`;
     const ratingHtml = rest.rating
       ? `<span class="rating">★ ${rest.rating.toFixed(1)} <em>(${rest.count})</em></span>` : "";
     const metaBits = [`<span><b>${fmtDist(rest.dist)}</b></span>`];
