@@ -102,6 +102,14 @@
 
   /* card stack */
   #stack-screen{justify-content:flex-start;}
+  .filter-row{flex:0 0 auto;display:flex;justify-content:center;gap:8px;padding:2px 0 6px;}
+  .filter-chip{font-family:"Outfit";font-size:13px;font-weight:600;letter-spacing:.02em;color:var(--cream);
+    background:rgba(251,234,255,.07);border:1.5px solid rgba(251,234,255,.22);border-radius:999px;
+    padding:8px 16px;cursor:pointer;transition:transform .15s var(--ease), background .2s, color .2s, border-color .2s;touch-action:manipulation;}
+  .filter-chip:active{transform:scale(.95);}
+  .filter-chip.on{color:#2a0d2b;background:linear-gradient(120deg,var(--gold),var(--mango));border-color:transparent;
+    box-shadow:0 8px 22px -8px rgba(255,178,77,.6);}
+  .deck-msg{max-width:300px;margin:auto;text-align:center;color:var(--cream-dim);font-size:15px;line-height:1.5;padding:24px;}
   .deck{position:relative;flex:1 1 auto;width:100%;margin:6px 0 4px;min-height:0;display:flex;align-items:center;justify-content:center;}
   .card{position:absolute;inset:0;margin:auto;width:100%;max-width:380px;max-height:560px;
     border-radius:var(--card-radius);overflow:hidden;
@@ -207,6 +215,9 @@
     </section>
 
     <section class="screen" id="stack-screen">
+      <div class="filter-row" id="filter-row">
+        <button class="filter-chip" id="fancy-chip" aria-pressed="false">✨ Fancy</button>
+      </div>
       <div class="deck" id="deck"></div>
       <div class="controls">
         <button class="round no" id="no-btn" aria-label="Pass">✕</button>
@@ -283,7 +294,9 @@
   let mode = "food";
   let coords = null;          // {lat, lng}
   let radiusIdx = 0;
-  let queue = [];             // restaurants still to show
+  let allLoaded = [];         // every place from the last search (sorted nearest-first)
+  let queue = [];             // places still to show, after filters
+  let fancyOn = false;        // "✨ Fancy" filter toggle
   const seen = new Set();
 
   const screens = {
@@ -331,6 +344,16 @@
       if (hi != null) return `up to ${sym}${hi}`;
     }
     return priceDollars(place.priceLevel);   // fall back to $ signs
+  }
+  // "nicer restaurant for a nicer event" = well-rated AND a high-end price signal
+  function isFancy(r){
+    if ((r.rating || 0) < 4.3) return false;                                   // quality gate
+    const lvl = String((r.place && r.place.priceLevel) || "").toUpperCase();
+    const pricey = lvl.includes("EXPENSIVE") && !lvl.includes("INEXPENSIVE");  // EXPENSIVE / VERY_EXPENSIVE
+    const pr = r.place && r.place.priceRange;
+    const highRange = pr && (moneyUnits(pr.endPrice) >= 50 || moneyUnits(pr.startPrice) >= 30);
+    const fine = /fine dining/i.test(r.cuisine || "");
+    return pricey || highRange || fine;
   }
   function summaryText(s){ return (typeof s === "string") ? s : (s && s.text) || ""; }
   function truncate(t, n){ t = (t||"").trim(); return t.length > n ? t.slice(0, n).trim() + "…" : t; }
@@ -464,8 +487,8 @@
         return errorScreen("🤷", "Nothing nearby", MODES[mode].none, radiusIdx < RADII.length - 1);
       }
       list.sort((a, b) => a.dist - b.dist);   // nearest first — show everything around you
-      queue = list.filter(r => !seen.has(r.name));
-      buildDeck();
+      allLoaded = list;
+      rebuildQueue();
     } catch (e){
       console.error(e);
       errorScreen("🌐", "Couldn't reach Google", "The places service didn't load. Check that your API key is valid, billing is on, and the key allows this site. Then try again.", false);
@@ -474,6 +497,20 @@
 
   // ---------- deck / cards ----------
   const deck = document.getElementById("deck");
+
+  // derive the visible deck from the full result set through the active filters
+  function rebuildQueue(){
+    queue = allLoaded.filter(r => !seen.has(r.name)).filter(r => !fancyOn || isFancy(r));
+    if (!queue.length){
+      if (fancyOn) return deckMessage("No fancy spots in this radius. Tap ✨ Fancy off to see everything, or search a wider area.");
+      return errorScreen("🍀", "That's everyone", "You've been through every spot nearby! Search a wider area or start fresh.", radiusIdx < RADII.length - 1);
+    }
+    buildDeck();
+  }
+  function deckMessage(text){
+    show("stack");
+    deck.innerHTML = `<div class="deck-msg">${esc(text)}</div>`;
+  }
 
   function buildDeck(){
     deck.innerHTML = "";
@@ -595,7 +632,8 @@
   }
 
   function buttonSwipe(verdict){
-    const top = deck.lastElementChild;
+    const cards = deck.querySelectorAll(".card");
+    const top = cards[cards.length - 1];
     if (!top) return;
     top.style.transition = "transform .4s var(--ease), opacity .4s var(--ease)";
     commit(top, verdict);
@@ -626,8 +664,22 @@
   }
 
   // ---------- wiring ----------
-  document.getElementById("mode-food").addEventListener("click", () => { mode = "food"; getLocation(); });
-  document.getElementById("mode-play").addEventListener("click", () => { mode = "play"; getLocation(); });
+  function setFancyVisible(v){
+    document.getElementById("filter-row").style.display = v ? "flex" : "none";
+    if (!v){
+      fancyOn = false;
+      const c = document.getElementById("fancy-chip");
+      c.classList.remove("on"); c.setAttribute("aria-pressed", "false");
+    }
+  }
+  document.getElementById("fancy-chip").addEventListener("click", (e) => {
+    fancyOn = !fancyOn;
+    e.currentTarget.classList.toggle("on", fancyOn);
+    e.currentTarget.setAttribute("aria-pressed", String(fancyOn));
+    rebuildQueue();
+  });
+  document.getElementById("mode-food").addEventListener("click", () => { mode = "food"; setFancyVisible(true); getLocation(); });
+  document.getElementById("mode-play").addEventListener("click", () => { mode = "play"; setFancyVisible(false); getLocation(); });
   document.getElementById("no-btn").addEventListener("click", () => buttonSwipe("no"));
   document.getElementById("yes-btn").addEventListener("click", () => buttonSwipe("yes"));
   document.getElementById("keep-btn").addEventListener("click", () => {
