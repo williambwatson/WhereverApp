@@ -36,6 +36,7 @@
   }
 
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  [hidden]{display:none !important;}   /* make the hidden attribute win over class display */
   html,body{height:100%;}
   body{
     font-family:"Manrope",system-ui,sans-serif;
@@ -97,6 +98,9 @@
   .manual input::placeholder{color:var(--text-dim);}
   .manual input:focus{border-color:var(--accent);}
   .loc-pick{display:flex;flex-direction:column;align-items:center;gap:10px;width:100%;}
+  .loc-actions{display:flex;flex-direction:column;align-items:center;gap:10px;width:100%;max-width:330px;}
+  .loc-actions .btn{width:100%;}
+  .loc-status{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center;font-size:14px;color:var(--accent);font-weight:600;}
   .linklike{background:none;border:none;color:var(--text-dim);font-family:"Manrope";font-size:13.5px;font-weight:500;
     text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:6px;touch-action:manipulation;}
   .linklike:active{color:var(--text);}
@@ -221,15 +225,19 @@
           </button>
         </div>
         <div class="loc-pick">
-          <button class="linklike" id="loc-toggle">Search a different place</button>
+          <div class="loc-actions" id="loc-actions">
+            <button class="btn ghost" id="use-location">📍 Use my location</button>
+            <button class="linklike" id="loc-toggle">Search a different place</button>
+          </div>
           <div class="manual" id="welcome-manual" hidden>
             <input id="welcome-loc-input" type="text" inputmode="search" autocomplete="off" placeholder="City, ZIP, or address" />
             <button class="btn ghost" id="welcome-loc-set">Set place →</button>
             <p class="loc-note" id="welcome-loc-note" hidden></p>
+            <button class="linklike" id="manual-cancel">cancel</button>
           </div>
-          <div class="loc-pinned" id="loc-pinned" hidden>
-            <span id="loc-pinned-label"></span>
-            <button class="linklike" id="loc-clear">use my location</button>
+          <div class="loc-status" id="loc-status" hidden>
+            <span id="loc-status-label"></span>
+            <button class="linklike" id="loc-change">change</button>
           </div>
         </div>
       </div>
@@ -297,8 +305,8 @@
   "use strict";
 
   // ---------- config ----------
-  const RADII = [2000, 5000, 12000];   // metres; "search wider" walks this up
-  const MAX_CARDS = 20;                // Google nearby-search returns up to 20
+  const RADII = [8000, 16000, 32000, 50000];   // metres (~5, 10, 20, 31 mi); auto-expands so you can keep swiping
+  const MAX_CARDS = 20;                         // Google nearby-search returns up to 20
 
   const MODES = {
     food: {
@@ -337,6 +345,7 @@
   let queue = [];             // places still to show, after filters
   let fancyOn = false;        // "Fancy" filter toggle
   let pinned = null;          // a manually-chosen location {lat,lng}, or null to use GPS
+  let gpsCoords = null;       // location granted via the "Use my location" button
   const seen = new Set();
   const history = [];         // places swiped away, for undo / swipe-back
 
@@ -440,6 +449,10 @@
       coords = pinned; radiusIdx = 0; seen.clear();
       return loadRestaurants();
     }
+    if (gpsCoords){                               // already granted via the button
+      coords = gpsCoords; radiusIdx = 0; seen.clear();
+      return loadRestaurants();
+    }
     show("loading");
     document.getElementById("loading-text").textContent = "Finding where you are…";
     if (!navigator.geolocation){
@@ -448,6 +461,7 @@
     navigator.geolocation.getCurrentPosition(
       pos => {
         coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        gpsCoords = coords;
         radiusIdx = 0; seen.clear();
         loadRestaurants();
       },
@@ -488,6 +502,50 @@
     }
   }
 
+  // ----- welcome location UI states -----
+  function showDefaultLoc(){
+    document.getElementById("loc-actions").hidden = false;
+    document.getElementById("welcome-manual").hidden = true;
+    document.getElementById("loc-status").hidden = true;
+    document.getElementById("welcome-loc-note").hidden = true;
+  }
+  function showLocStatus(label){
+    document.getElementById("loc-status-label").textContent = label;
+    document.getElementById("loc-actions").hidden = true;
+    document.getElementById("welcome-manual").hidden = true;
+    document.getElementById("loc-status").hidden = false;
+  }
+  function openManualLoc(msg){
+    document.getElementById("loc-actions").hidden = true;
+    document.getElementById("loc-status").hidden = true;
+    document.getElementById("welcome-manual").hidden = false;
+    const note = document.getElementById("welcome-loc-note");
+    if (msg){ note.textContent = msg; note.hidden = false; } else { note.hidden = true; }
+    document.getElementById("welcome-loc-input").focus();
+  }
+
+  // the explicit "Use my location" button — triggers the OS permission prompt directly
+  function requestMyLocation(){
+    const btn = document.getElementById("use-location");
+    if (!navigator.geolocation){ openManualLoc("This browser can't share location — enter a place instead."); return; }
+    const prev = btn.textContent; btn.textContent = "Locating…"; btn.disabled = true;
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        gpsCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        pinned = null;
+        btn.textContent = prev; btn.disabled = false;
+        showLocStatus("✓ Using your location");
+      },
+      err => {
+        btn.textContent = prev; btn.disabled = false;
+        openManualLoc(err.code === err.PERMISSION_DENIED
+          ? "Location is blocked. On iPhone: Settings → Privacy & Security → Location Services → Safari → While Using. Or enter a place below."
+          : "Couldn't get your location. Enter a place below instead.");
+      },
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
+    );
+  }
+
   // welcome-screen "search a different place": pin a location, then any mode uses it
   async function setPinnedFromInput(){
     const input = document.getElementById("welcome-loc-input");
@@ -500,11 +558,8 @@
     try {
       const ll = await geocode(text);
       if (!ll){ note.textContent = "Couldn't find that place — try a city & state or ZIP."; note.hidden = false; return; }
-      pinned = ll;
-      document.getElementById("loc-pinned-label").textContent = "Searching near " + text;
-      document.getElementById("welcome-manual").hidden = true;
-      document.getElementById("loc-toggle").hidden = true;
-      document.getElementById("loc-pinned").hidden = false;
+      pinned = ll; gpsCoords = null;
+      showLocStatus("📍 Near " + text);
     } catch (e){
       console.error(e);
       note.textContent = "Couldn't look that up right now. Try again.";
@@ -553,10 +608,10 @@
     return [...byId.values()];
   }
 
-  async function loadRestaurants(){
+  async function loadRestaurants(append){
     show("loading");
-    history.length = 0; updateUndo();
-    document.getElementById("loading-text").textContent = MODES[mode].loading;
+    if (!append){ history.length = 0; updateUndo(); }
+    document.getElementById("loading-text").textContent = append ? "Looking a little further out…" : MODES[mode].loading;
     try {
       const { Place, SearchNearbyRankPreference } = await google.maps.importLibrary("places");
       const places = await searchAllNearby(Place, SearchNearbyRankPreference);
@@ -583,10 +638,18 @@
       }).filter(Boolean);
 
       if (!list.length){
+        if (append) return needMore();
         return errorScreen("🤷", "Nothing nearby", MODES[mode].none, radiusIdx < RADII.length - 1);
       }
-      list.sort((a, b) => a.dist - b.dist);   // nearest first — show everything around you
-      allLoaded = list;
+      // randomise the order each time, but keep closer places generally earlier
+      list.forEach(r => { r._key = r.dist * (0.5 + Math.random()); });
+      list.sort((a, b) => a._key - b._key);
+      if (append){
+        const have = new Set(allLoaded.map(r => r.name));
+        allLoaded = allLoaded.concat(list.filter(r => !have.has(r.name)));
+      } else {
+        allLoaded = list;
+      }
       rebuildQueue();
     } catch (e){
       console.error(e);
@@ -599,12 +662,23 @@
 
   // derive the visible deck from the full result set through the active filters
   function rebuildQueue(){
-    queue = allLoaded.filter(r => !seen.has(r.name)).filter(r => !fancyOn || isFancy(r));
+    const available = allLoaded.filter(r => !seen.has(r.name));
+    queue = available.filter(r => !fancyOn || isFancy(r));
     if (!queue.length){
-      if (fancyOn) return deckMessage("No fancy spots in this radius. Tap the Fancy filter off to see everything, or search a wider area.");
-      return errorScreen("🍀", "That's everyone", "You've been through every spot nearby! Search a wider area or start fresh.", radiusIdx < RADII.length - 1);
+      if (!available.length) return needMore();   // genuinely out — auto-expand the radius
+      return deckMessage("No fancy spots in this radius. Tap the Fancy filter off to see everything, or search a wider area.");
     }
     buildDeck();
+  }
+
+  // "swipe forever": when you run out, quietly widen the search until the largest radius
+  function needMore(){
+    if (radiusIdx < RADII.length - 1){
+      radiusIdx++;
+      loadRestaurants(true);
+      return;
+    }
+    errorScreen("🍀", "That's everyone", "You've swiped through everything for miles around! Try a different vibe, or a different place from the home screen.", false);
   }
   function deckMessage(text){
     show("stack");
@@ -725,10 +799,7 @@
 
     setTimeout(() => {
       if (verdict === "yes" && rest){ openMatch(rest); return; }
-      if (!queue.length){
-        errorScreen("🍀", "That's everyone", "You passed on all the nearby spots! Cast a wider net or start fresh.", radiusIdx < RADII.length - 1);
-        return;
-      }
+      if (!queue.length){ needMore(); return; }
       buildDeck();
     }, 280);
   }
@@ -807,19 +878,12 @@
   document.getElementById("mode-play").addEventListener("click", () => { mode = "play"; setFancyVisible(false); getLocation(); });
   document.getElementById("loc-go").addEventListener("click", searchTypedLocation);
   document.getElementById("loc-input").addEventListener("keydown", (e) => { if (e.key === "Enter") searchTypedLocation(); });
-  document.getElementById("loc-toggle").addEventListener("click", () => {
-    document.getElementById("welcome-manual").hidden = false;
-    document.getElementById("loc-toggle").hidden = true;
-    document.getElementById("welcome-loc-input").focus();
-  });
+  document.getElementById("use-location").addEventListener("click", requestMyLocation);
+  document.getElementById("loc-toggle").addEventListener("click", () => openManualLoc());
   document.getElementById("welcome-loc-set").addEventListener("click", setPinnedFromInput);
   document.getElementById("welcome-loc-input").addEventListener("keydown", (e) => { if (e.key === "Enter") setPinnedFromInput(); });
-  document.getElementById("loc-clear").addEventListener("click", () => {
-    pinned = null;
-    document.getElementById("loc-pinned").hidden = true;
-    document.getElementById("welcome-manual").hidden = true;
-    document.getElementById("loc-toggle").hidden = false;
-  });
+  document.getElementById("manual-cancel").addEventListener("click", showDefaultLoc);
+  document.getElementById("loc-change").addEventListener("click", () => { pinned = null; gpsCoords = null; showDefaultLoc(); });
   document.getElementById("undo-btn").addEventListener("click", undoLast);
   document.getElementById("home-btn").addEventListener("click", goHome);
   document.getElementById("brand-home").addEventListener("click", goHome);
@@ -827,11 +891,10 @@
   document.getElementById("yes-btn").addEventListener("click", () => buttonSwipe("yes"));
   document.getElementById("keep-btn").addEventListener("click", () => {
     if (queue.length) buildDeck();
-    else if (radiusIdx < RADII.length - 1){ radiusIdx++; loadRestaurants(); }
-    else getLocation();
+    else needMore();
   });
   document.getElementById("retry-btn").addEventListener("click", () => { if (coords) loadRestaurants(); else getLocation(); });
-  document.getElementById("wider-btn").addEventListener("click", () => { if (radiusIdx < RADII.length - 1) radiusIdx++; loadRestaurants(); });
+  document.getElementById("wider-btn").addEventListener("click", needMore);
 })();
 </script>
 </body>
