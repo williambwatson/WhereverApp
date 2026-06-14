@@ -101,6 +101,12 @@
     border:1.5px solid rgba(251,234,255,.25);border-radius:14px;padding:13px 16px;width:100%;outline:none;text-align:center;}
   .manual input::placeholder{color:var(--cream-dim);}
   .manual input:focus{border-color:var(--mango);}
+  .loc-pick{display:flex;flex-direction:column;align-items:center;gap:10px;width:100%;}
+  .linklike{background:none;border:none;color:var(--cream-dim);font-family:"Outfit";font-size:13.5px;
+    text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:6px;touch-action:manipulation;}
+  .linklike:active{color:var(--cream);}
+  .loc-note{font-size:12.5px;color:var(--coral);margin:0;}
+  .loc-pinned{font-size:13.5px;color:var(--mango);display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center;}
   .ico{width:21px;height:21px;flex:0 0 auto;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;}
   .ico .fill{fill:currentColor;stroke:none;}
 
@@ -215,6 +221,18 @@
             Find something to do
           </button>
         </div>
+        <div class="loc-pick">
+          <button class="linklike" id="loc-toggle">📍 Search a different place</button>
+          <div class="manual" id="welcome-manual" hidden>
+            <input id="welcome-loc-input" type="text" inputmode="search" autocomplete="off" placeholder="City, ZIP, or address" />
+            <button class="btn ghost" id="welcome-loc-set">Set place →</button>
+            <p class="loc-note" id="welcome-loc-note" hidden></p>
+          </div>
+          <div class="loc-pinned" id="loc-pinned" hidden>
+            <span id="loc-pinned-label"></span>
+            <button class="linklike" id="loc-clear">use my location</button>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -321,6 +339,7 @@
   let allLoaded = [];         // every place from the last search (sorted nearest-first)
   let queue = [];             // places still to show, after filters
   let fancyOn = false;        // "✨ Fancy" filter toggle
+  let pinned = null;          // a manually-chosen location {lat,lng}, or null to use GPS
   const seen = new Set();
 
   const screens = {
@@ -418,6 +437,10 @@
     if (!window.GOOGLE_PLACES_KEY || /PASTE_YOUR_KEY/.test(window.GOOGLE_PLACES_KEY)){
       return errorScreen("🔑", "Add your API key", "Open index.html and paste your Google Places key into the line near the top that says window.GOOGLE_PLACES_KEY. Then commit and refresh.", false);
     }
+    if (pinned){                                  // a place was chosen manually — skip GPS
+      coords = pinned; radiusIdx = 0; seen.clear();
+      return loadRestaurants();
+    }
     show("loading");
     document.getElementById("loading-text").textContent = "Finding where you are…";
     if (!navigator.geolocation){
@@ -440,24 +463,55 @@
     );
   }
 
-  // fallback when GPS is blocked/unavailable: look up a typed place via Places text search
+  // turn a typed place (city / ZIP / address) into coordinates via Places text search
+  async function geocode(text){
+    const { Place } = await google.maps.importLibrary("places");
+    const { places } = await Place.searchByText({ textQuery: text, fields: ["location"], maxResultCount: 1 });
+    return (places && places[0] && latLngOf(places[0].location)) || null;
+  }
+
+  // error-screen fallback when GPS is blocked/unavailable
   async function searchTypedLocation(){
     const text = (document.getElementById("loc-input").value || "").trim();
     if (!text) return;
     show("loading");
     document.getElementById("loading-text").textContent = "Looking up that place…";
     try {
-      const { Place } = await google.maps.importLibrary("places");
-      const { places } = await Place.searchByText({ textQuery: text, fields: ["location"], maxResultCount: 1 });
-      const ll = places && places[0] && latLngOf(places[0].location);
+      const ll = await geocode(text);
       if (!ll){
         return errorScreen("🗺️", "Couldn't find that", "Try a city and state, a ZIP code, or a full street address.", false, true);
       }
-      coords = ll; radiusIdx = 0; seen.clear();
+      pinned = ll; coords = ll; radiusIdx = 0; seen.clear();
       loadRestaurants();
     } catch (e){
       console.error(e);
       errorScreen("🌐", "Couldn't reach Google", "Check your connection and that the API key allows this site, then try again.", false, true);
+    }
+  }
+
+  // welcome-screen "search a different place": pin a location, then any mode uses it
+  async function setPinnedFromInput(){
+    const input = document.getElementById("welcome-loc-input");
+    const note = document.getElementById("welcome-loc-note");
+    const setBtn = document.getElementById("welcome-loc-set");
+    const text = (input.value || "").trim();
+    if (!text) return;
+    note.hidden = true;
+    const prev = setBtn.textContent; setBtn.textContent = "Finding…";
+    try {
+      const ll = await geocode(text);
+      if (!ll){ note.textContent = "Couldn't find that place — try a city & state or ZIP."; note.hidden = false; return; }
+      pinned = ll;
+      document.getElementById("loc-pinned-label").textContent = "📍 Searching near " + text;
+      document.getElementById("welcome-manual").hidden = true;
+      document.getElementById("loc-toggle").hidden = true;
+      document.getElementById("loc-pinned").hidden = false;
+    } catch (e){
+      console.error(e);
+      note.textContent = "Couldn't look that up right now. Try again.";
+      note.hidden = false;
+    } finally {
+      setBtn.textContent = prev;
     }
   }
 
@@ -729,6 +783,19 @@
   document.getElementById("mode-play").addEventListener("click", () => { mode = "play"; setFancyVisible(false); getLocation(); });
   document.getElementById("loc-go").addEventListener("click", searchTypedLocation);
   document.getElementById("loc-input").addEventListener("keydown", (e) => { if (e.key === "Enter") searchTypedLocation(); });
+  document.getElementById("loc-toggle").addEventListener("click", () => {
+    document.getElementById("welcome-manual").hidden = false;
+    document.getElementById("loc-toggle").hidden = true;
+    document.getElementById("welcome-loc-input").focus();
+  });
+  document.getElementById("welcome-loc-set").addEventListener("click", setPinnedFromInput);
+  document.getElementById("welcome-loc-input").addEventListener("keydown", (e) => { if (e.key === "Enter") setPinnedFromInput(); });
+  document.getElementById("loc-clear").addEventListener("click", () => {
+    pinned = null;
+    document.getElementById("loc-pinned").hidden = true;
+    document.getElementById("welcome-manual").hidden = true;
+    document.getElementById("loc-toggle").hidden = false;
+  });
   document.getElementById("no-btn").addEventListener("click", () => buttonSwipe("no"));
   document.getElementById("yes-btn").addEventListener("click", () => buttonSwipe("yes"));
   document.getElementById("keep-btn").addEventListener("click", () => {
