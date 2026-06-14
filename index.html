@@ -145,6 +145,10 @@
     color:var(--text);background:rgba(6,10,18,.5);border:1px solid rgba(255,255,255,.16);
     padding:6px 12px;border-radius:999px;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
     text-shadow:0 1px 4px rgba(0,0,0,.5);}
+  .chips{display:flex;flex-direction:column;gap:6px;align-items:flex-start;}
+  .trending-badge{font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+    color:#241400;background:linear-gradient(120deg,#ffce6b,#ff8a3d);border-radius:999px;padding:5px 10px;
+    box-shadow:0 6px 16px -6px rgba(255,138,61,.75);white-space:nowrap;}
   .rating{font-size:13.5px;font-weight:700;color:var(--gold);white-space:nowrap;
     background:rgba(6,10,18,.5);border:1px solid rgba(216,177,90,.4);padding:6px 11px;border-radius:999px;
     backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);text-shadow:0 1px 4px rgba(0,0,0,.5);}
@@ -310,13 +314,15 @@
 
   const MODES = {
     food: {
-      // sit-down restaurants only: keep places tagged "restaurant", drop anything whose
-      // primary type is fast food, a café, a bar, takeout, a snack shop or a store.
+      // Almost every sit-down restaurant: keep the broad "restaurant" net, and only drop
+      // true fast food + non-restaurant categories (cafés, bars, snack/dessert shops, stores).
+      // Sit-down burger / deli / chicken / steak places stay in.
       includedTypes: ["restaurant"],
-      excludedPrimaryTypes: ["fast_food_restaurant","hamburger_restaurant","sandwich_shop",
-        "chicken_restaurant","ice_cream_shop","donut_shop","cafe","coffee_shop","bakery",
-        "tea_house","bar","meal_takeaway","meal_delivery","grocery_store","supermarket",
-        "convenience_store","gas_station","liquor_store"],
+      excludedPrimaryTypes: ["fast_food_restaurant","meal_takeaway","meal_delivery",
+        "cafe","coffee_shop","bakery","tea_house","cafeteria",
+        "ice_cream_shop","donut_shop","acai_shop","bagel_shop","cake_shop","dessert_restaurant","salad_shop","snack_bar",
+        "bar","cocktail_bar","pub","irish_pub","beer_garden","brewery",
+        "grocery_store","supermarket","convenience_store","gas_station","liquor_store"],
       loading: "Finding restaurants nearby…",
       none: "We couldn't find restaurants in this radius. Want to cast a wider net?",
       burst: "It's dinner!",
@@ -417,6 +423,24 @@
   function summaryText(s){ return (typeof s === "string") ? s : (s && s.text) || ""; }
   function truncate(t, n){ t = (t||"").trim(); return t.length > n ? t.slice(0, n).trim() + "…" : t; }
   function esc(s){ const d = document.createElement("div"); d.textContent = s ?? ""; return d.innerHTML; }
+
+  // 🔥 curated local favourites (Raleigh to start), from Reddit / TikTok / local press.
+  // Matched as normalised substrings of a place's name. Easy to expand to other cities.
+  const TRENDING = {
+    food: ["bida manda","vidrio","sushi mon","pho far east","tamasha","whiskey kitchen","wye hill",
+      "standard beer","village tavern","farina","crunkleton","asia pot","daijobu","figulina","brodeto",
+      "crawford and son","saint jacques","rey's restaurant","garland","brewery bhavana","death and taxes",
+      "poole's","jose and sons","gravy"],
+    coffee: ["pine state","little native","cup a joe","aversboro","deja brew","raleigh coffee co",
+      "jubala","sola coffee","42 and lawrence","the morning times"],
+    play: [],
+  };
+  function normName(s){ return (s || "").toLowerCase().replace(/&/g, " and ").replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim(); }
+  function isTrending(name, m){
+    const list = TRENDING[m] || [];
+    const n = normName(name);
+    return list.some(frag => n.includes(normName(frag)));
+  }
 
   // simple line-icons (matching the button style) for cards that have no photo
   const ICONS = {
@@ -638,6 +662,7 @@
           maps: place.googleMapsURI || `https://www.google.com/maps/search/?api=1&query=${ll.lat},${ll.lng}`,
           lat: ll.lat, lng: ll.lng,
           dist: haversineMiles(coords, ll),
+          trending: isTrending(place.displayName, mode),
           reviewLoaded: false,
         };
       }).filter(Boolean);
@@ -646,9 +671,11 @@
         if (append) return needMore();
         return errorScreen("🤷", "Nothing nearby", MODES[mode].none, radiusIdx < RADII.length - 1);
       }
-      // randomise the order each time, but keep closer places generally earlier
-      list.forEach(r => { r._key = r.dist * (0.5 + Math.random()); });
-      list.sort((a, b) => a._key - b._key);
+      // 🔥 curated favourites lead the deck; everyone else ordered by closeness + a little
+      // randomness, lifted by buzz (rating × reviews).
+      const buzz = r => Math.max((r.rating || 3.5) - 3.2 + Math.min(Math.log10((r.count || 0) + 1), 3) * 0.5, 0.1);
+      list.forEach(r => { r._key = r.dist * (0.5 + Math.random()) / (1 + buzz(r) * 0.3); });
+      list.sort((a, b) => (b.trending ? 1 : 0) - (a.trending ? 1 : 0) || a._key - b._key);
       if (append){
         const have = new Set(allLoaded.map(r => r.name));
         allLoaded = allLoaded.concat(list.filter(r => !have.has(r.name)));
@@ -732,7 +759,10 @@
       <div class="stamp yes">Keep</div>
       <div class="stamp no">Skip</div>
       <div class="card-top">
-        <span class="cuisine-chip">${esc(rest.cuisine)}</span>
+        <div class="chips">
+          <span class="cuisine-chip">${esc(rest.cuisine)}</span>
+          ${rest.trending ? `<span class="trending-badge">🔥 Local favorite</span>` : ""}
+        </div>
         ${ratingHtml}
       </div>
       <div class="card-body">
@@ -837,6 +867,7 @@
     document.getElementById("match-name").textContent = rest.name;
     const bits = [rest.cuisine, fmtDist(rest.dist)];
     if (rest.rating) bits.push("★ " + rest.rating.toFixed(1));
+    if (rest.trending) bits.push("🔥 Local favorite");
     document.getElementById("match-meta").textContent = bits.join(" · ");
     document.getElementById("maps-btn").href = rest.maps;
     const site = document.getElementById("site-btn");
