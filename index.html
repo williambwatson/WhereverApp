@@ -430,7 +430,13 @@
     food: ["bida manda","vidrio","sushi mon","pho far east","tamasha","whiskey kitchen","wye hill",
       "standard beer","village tavern","farina","crunkleton","asia pot","daijobu","figulina","brodeto",
       "crawford and son","saint jacques","rey's restaurant","garland","brewery bhavana","death and taxes",
-      "poole's","jose and sons","gravy"],
+      "poole's","jose and sons","gravy",
+      // more Raleigh favourites across the districts (downtown, Glenwood, Village District,
+      // North Hills, Hillsborough St, Five Points, Person St)
+      "mojoe","player's retreat","lilly's pizza","sitti","caffe luna","cantina 18","david's dumpling",
+      "glenwood grill","midtown grille","stanbury","capital club 16","the cortez","calavera","coquette",
+      "second empire","angus barn","the fiction kitchen","tupelo honey","42nd street oyster","centro",
+      "j betski","the oxford","royale","mulino","oakleaf","mandolin","st. roch","jolie","mami nora"],
     coffee: ["pine state","little native","cup a joe","aversboro","deja brew","raleigh coffee co",
       "jubala","sola coffee","42 and lawrence","the morning times"],
     play: [],
@@ -440,6 +446,16 @@
     const list = TRENDING[m] || [];
     const n = normName(name);
     return list.some(frag => n.includes(normName(frag)));
+  }
+
+  // National sit-down chains people use this app to avoid (fast food is already
+  // excluded by type). Matched as normalised name fragments — easy to add/remove.
+  const SKIP_NAMES = ["red lobster","olive garden","applebee","chili's","tgi friday","fridays",
+    "outback steakhouse","longhorn steakhouse","cracker barrel","ihop","denny's","golden corral",
+    "ruby tuesday","o'charley","red robin","logan's roadhouse","carrabba"];
+  function isBlocked(name){
+    const n = normName(name);
+    return SKIP_NAMES.some(frag => n.includes(normName(frag)));
   }
 
   // simple line-icons (matching the button style) for cards that have no photo
@@ -608,8 +624,8 @@
                     "primaryTypeDisplayName","editorialSummary","priceLevel","priceRange",
                     "websiteURI","googleMapsURI"];
     const overall = RADII[radiusIdx];
-    const step = Math.round(overall / 2);        // ~5 tiles per axis (~21 searches)
-    const cell = Math.round(overall * 0.6);      // each tile's radius (tiles overlap)
+    const step = Math.round(overall / 3);        // ~7 tiles per axis (~37 searches) for fuller coverage
+    const cell = Math.round(overall * 0.42);     // each tile's radius (tiles overlap, no gaps)
     const cosLat = Math.cos(coords.lat * Math.PI / 180) || 1;
     const pts = [];
     for (let dx = -overall; dx <= overall; dx += step){
@@ -637,17 +653,55 @@
     return [...byId.values()];
   }
 
+  // The popularity-ranked search can drop smaller local gems. Look up each curated
+  // favourite by name near you and merge it in, so named spots always show up.
+  const CURATED_CENTER = { lat: 35.7796, lng: -78.6382 };   // Raleigh — where the 🔥 list applies
+  async function fetchCurated(Place, found){
+    const names = TRENDING[mode] || [];
+    if (!names.length) return [];
+    // the curated list is Raleigh-specific, and each by-name lookup is a paid Text Search —
+    // so only run them when you're actually near Raleigh, and cap how many fire per load.
+    if (haversineMiles(coords, CURATED_CENTER) > 45) return [];
+    const overall = RADII[radiusIdx];
+    const haveNorm = found.map(p => normName(p.displayName));
+    const missing = names.filter(frag => !haveNorm.some(h => h.includes(normName(frag)))).slice(0, 28);
+    if (!missing.length) return [];
+    const fields = ["id","displayName","location","photos","rating","userRatingCount",
+                    "primaryTypeDisplayName","editorialSummary","priceLevel","priceRange",
+                    "websiteURI","googleMapsURI"];
+    const hint = mode === "coffee" ? " coffee" : mode === "play" ? "" : " restaurant";
+    const incl = mode === "coffee" ? "coffee_shop" : mode === "play" ? null : "restaurant";
+    const got = await Promise.all(missing.map(async frag => {
+      const req = { textQuery: frag + hint, fields, maxResultCount: 1,
+        locationBias: { center: coords, radius: Math.min(overall, 40000) } };
+      if (incl) req.includedType = incl;
+      const x = await Place.searchByText(req).catch(() => null);
+      const pl = x && x.places && x.places[0];
+      if (!pl || isBlocked(pl.displayName)) return null;
+      if (!normName(pl.displayName).includes(normName(frag))) return null;   // wrong place
+      const ll = latLngOf(pl.location);
+      if (!ll || haversineMiles(coords, ll) > 35) return null;               // too far to matter
+      return pl;
+    }));
+    return got.filter(Boolean);
+  }
+
   async function loadRestaurants(append){
     show("loading");
     if (!append){ history.length = 0; updateUndo(); }
     document.getElementById("loading-text").textContent = append ? "Looking a little further out…" : MODES[mode].loading;
     try {
       const { Place, SearchNearbyRankPreference } = await google.maps.importLibrary("places");
-      const places = await searchAllNearby(Place, SearchNearbyRankPreference);
+      let places = await searchAllNearby(Place, SearchNearbyRankPreference);
+      if (!append){
+        const extra = await fetchCurated(Place, places);
+        const ids = new Set(places.map(p => p.id));
+        for (const pl of extra) if (!ids.has(pl.id)) places.push(pl);
+      }
 
       const list = places.map(place => {
         const ll = latLngOf(place.location);
-        if (!ll) return null;
+        if (!ll || isBlocked(place.displayName)) return null;
         let photo = "";
         try { photo = place.photos?.[0]?.getURI({ maxWidth: 900 }) || ""; } catch(e){}
         return {
