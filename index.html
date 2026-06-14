@@ -310,10 +310,15 @@
 
   const MODES = {
     food: {
-      includedTypes: ["restaurant", "fast_food_restaurant", "meal_takeaway"],
-      excludedPrimaryTypes: ["grocery_store", "supermarket", "convenience_store", "gas_station", "liquor_store"],
-      loading: "Finding places to eat nearby…",
-      none: "We couldn't find places to eat in this radius. Want to cast a wider net?",
+      // sit-down restaurants only: keep places tagged "restaurant", drop anything whose
+      // primary type is fast food, a café, a bar, takeout, a snack shop or a store.
+      includedTypes: ["restaurant"],
+      excludedPrimaryTypes: ["fast_food_restaurant","hamburger_restaurant","sandwich_shop",
+        "chicken_restaurant","ice_cream_shop","donut_shop","cafe","coffee_shop","bakery",
+        "tea_house","bar","meal_takeaway","meal_delivery","grocery_store","supermarket",
+        "convenience_store","gas_station","liquor_store"],
+      loading: "Finding restaurants nearby…",
+      none: "We couldn't find restaurants in this radius. Want to cast a wider net?",
       burst: "It's dinner!",
       siteLabel: "View menu →",
     },
@@ -328,10 +333,10 @@
       siteLabel: "Visit website →",
     },
     coffee: {
-      includedTypes: ["coffee_shop", "cafe", "bakery", "tea_house"],
-      excludedPrimaryTypes: ["grocery_store", "supermarket", "convenience_store", "gas_station"],
-      loading: "Finding cafés nearby…",
-      none: "We couldn't find coffee spots in this radius. Want to cast a wider net?",
+      includedTypes: ["coffee_shop", "cafe"],
+      excludedPrimaryTypes: ["bakery", "tea_house", "restaurant", "grocery_store", "supermarket", "convenience_store", "gas_station"],
+      loading: "Finding coffee shops nearby…",
+      none: "We couldn't find coffee shops in this radius. Want to cast a wider net?",
       burst: "Coffee it is!",
       siteLabel: "View menu →",
     },
