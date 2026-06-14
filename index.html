@@ -92,8 +92,15 @@
   .btn.ghost:active{background:rgba(251,234,255,.07);}
   .btn.alt{color:#062a26;background:linear-gradient(120deg,var(--mint),#46d8ff);
     box-shadow:0 12px 30px -8px rgba(51,224,168,.5), inset 0 1px 0 rgba(255,255,255,.4);}
+  .btn.coffee{color:#fff3e6;background:linear-gradient(120deg,#cda06a,#7b4a2c);
+    box-shadow:0 12px 30px -8px rgba(123,74,44,.6), inset 0 1px 0 rgba(255,255,255,.25);}
   .mode-row{display:flex;flex-direction:column;gap:12px;width:100%;max-width:320px;}
   .mode-row .btn{width:100%;display:inline-flex;align-items:center;justify-content:center;gap:10px;}
+  .manual{display:flex;flex-direction:column;gap:10px;width:100%;max-width:320px;}
+  .manual input{font-family:"Outfit";font-size:16px;color:var(--cream);background:rgba(251,234,255,.08);
+    border:1.5px solid rgba(251,234,255,.25);border-radius:14px;padding:13px 16px;width:100%;outline:none;text-align:center;}
+  .manual input::placeholder{color:var(--cream-dim);}
+  .manual input:focus{border-color:var(--mango);}
   .ico{width:21px;height:21px;flex:0 0 auto;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;}
   .ico .fill{fill:currentColor;stroke:none;}
 
@@ -199,6 +206,10 @@
             <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="5.4"/><line x1="4.3" y1="3.5" x2="4.3" y2="20.5"/><line x1="19.7" y1="3.5" x2="19.7" y2="20.5"/></svg>
             Grab a bite
           </button>
+          <button class="btn coffee" id="mode-coffee">
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h11v6a4 4 0 0 1-4 4H9a4 4 0 0 1-4-4z"/><path d="M16 9h2.5a2.5 2.5 0 0 1 0 5H16"/><line x1="8" y1="3.5" x2="8" y2="5.5"/><line x1="12" y1="3.5" x2="12" y2="5.5"/></svg>
+            Grab coffee
+          </button>
           <button class="btn alt" id="mode-play">
             <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><polygon class="fill" points="15.6,8.4 10.4,10.4 8.4,15.6 13.6,13.6"/></svg>
             Find something to do
@@ -242,6 +253,10 @@
         <div class="err-emoji" id="err-emoji">🍽️</div>
         <div class="lede" id="err-title" style="font-size:clamp(24px,7vw,34px)">Hmm.</div>
         <p class="sub" id="err-text"></p>
+        <div class="manual" id="manual-box" hidden>
+          <input id="loc-input" type="text" inputmode="search" autocomplete="off" placeholder="Enter a city, ZIP, or address" />
+          <button class="btn" id="loc-go">Search this place →</button>
+        </div>
         <button class="btn" id="retry-btn">Try again</button>
         <button class="btn ghost" id="wider-btn" hidden>Search a wider area</button>
       </div>
@@ -287,6 +302,15 @@
       burst: "Let's do it!",
       siteLabel: "Visit website →",
       fallbackEmoji: "🎉",
+    },
+    coffee: {
+      includedTypes: ["coffee_shop", "cafe", "bakery", "tea_house"],
+      excludedPrimaryTypes: ["grocery_store", "supermarket", "convenience_store", "gas_station"],
+      loading: "Finding cozy cafés nearby…",
+      none: "We couldn't find coffee spots in this radius. Want to cast a wider net?",
+      burst: "Coffee it is!",
+      siteLabel: "View menu →",
+      fallbackEmoji: "☕",
     },
   };
 
@@ -397,7 +421,7 @@
     show("loading");
     document.getElementById("loading-text").textContent = "Finding where you are…";
     if (!navigator.geolocation){
-      return errorScreen("📍", "No location support", "This browser can't share your location. Try Safari or Chrome.", false);
+      return errorScreen("📍", "No location support", "This browser can't share your location — just type where you are below instead.", false, true);
     }
     navigator.geolocation.getCurrentPosition(
       pos => {
@@ -407,13 +431,34 @@
       },
       err => {
         if (err.code === err.PERMISSION_DENIED){
-          errorScreen("📍", "Location is off", "We need your location to find places nearby. Enable it for this site and tap try again.", false);
+          errorScreen("📍", "Location is blocked", "Allow location for this site and tap Try again — or just type where you are below. On iPhone: Settings → Privacy & Security → Location Services (on), then Safari Websites → While Using.", false, true);
         } else {
-          errorScreen("📡", "Couldn't get a fix", "Your location couldn't be read. Step outside or try again in a moment.", false);
+          errorScreen("📡", "Couldn't get your location", "We couldn't read your GPS. Type where you are below, or tap Try again.", false, true);
         }
       },
       { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
     );
+  }
+
+  // fallback when GPS is blocked/unavailable: look up a typed place via Places text search
+  async function searchTypedLocation(){
+    const text = (document.getElementById("loc-input").value || "").trim();
+    if (!text) return;
+    show("loading");
+    document.getElementById("loading-text").textContent = "Looking up that place…";
+    try {
+      const { Place } = await google.maps.importLibrary("places");
+      const { places } = await Place.searchByText({ textQuery: text, fields: ["location"], maxResultCount: 1 });
+      const ll = places && places[0] && latLngOf(places[0].location);
+      if (!ll){
+        return errorScreen("🗺️", "Couldn't find that", "Try a city and state, a ZIP code, or a full street address.", false, true);
+      }
+      coords = ll; radiusIdx = 0; seen.clear();
+      loadRestaurants();
+    } catch (e){
+      console.error(e);
+      errorScreen("🌐", "Couldn't reach Google", "Check your connection and that the API key allows this site, then try again.", false, true);
+    }
   }
 
   // ---------- google places ----------
@@ -655,11 +700,12 @@
   }
 
   // ---------- error / empty ----------
-  function errorScreen(emoji, title, text, allowWider){
+  function errorScreen(emoji, title, text, allowWider, allowManual){
     document.getElementById("err-emoji").textContent = emoji;
     document.getElementById("err-title").textContent = title;
     document.getElementById("err-text").textContent = text;
     document.getElementById("wider-btn").hidden = !allowWider;
+    document.getElementById("manual-box").hidden = !allowManual;
     show("error");
   }
 
@@ -679,7 +725,10 @@
     rebuildQueue();
   });
   document.getElementById("mode-food").addEventListener("click", () => { mode = "food"; setFancyVisible(true); getLocation(); });
+  document.getElementById("mode-coffee").addEventListener("click", () => { mode = "coffee"; setFancyVisible(false); getLocation(); });
   document.getElementById("mode-play").addEventListener("click", () => { mode = "play"; setFancyVisible(false); getLocation(); });
+  document.getElementById("loc-go").addEventListener("click", searchTypedLocation);
+  document.getElementById("loc-input").addEventListener("keydown", (e) => { if (e.key === "Enter") searchTypedLocation(); });
   document.getElementById("no-btn").addEventListener("click", () => buttonSwipe("no"));
   document.getElementById("yes-btn").addEventListener("click", () => buttonSwipe("yes"));
   document.getElementById("keep-btn").addEventListener("click", () => {
