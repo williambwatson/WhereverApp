@@ -158,6 +158,9 @@
   .trending-badge{font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
     color:#241400;background:linear-gradient(120deg,#ffce6b,#ff8a3d);border-radius:999px;padding:5px 10px;
     box-shadow:0 6px 16px -6px rgba(255,138,61,.75);white-space:nowrap;}
+  .new-badge{font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+    color:#04130f;background:linear-gradient(120deg,#67e8c3,#2fa78d);border-radius:999px;padding:5px 10px;
+    box-shadow:0 6px 16px -6px rgba(47,167,141,.75);white-space:nowrap;}
   .rating{font-size:13.5px;font-weight:700;color:var(--gold);white-space:nowrap;
     background:rgba(6,10,18,.5);border:1px solid rgba(216,177,90,.4);padding:6px 11px;border-radius:999px;
     backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);text-shadow:0 1px 4px rgba(0,0,0,.5);}
@@ -257,6 +260,8 @@
             <span id="loc-status-label"></span>
             <button class="linklike" id="loc-change">change</button>
           </div>
+          <!-- community: users email new spots to add. Swap href for a forms.gle URL later if preferred. -->
+          <a class="linklike" id="suggest-spot" href="mailto:williambwatson05@gmail.com?subject=Wherever%3A%20suggest%20a%20spot&body=Place%20name%3A%0ACity%2Farea%3A%0AWhy%20it%27s%20great%3A%0A">Know a great new spot? Suggest it →</a>
         </div>
       </div>
     </section>
@@ -482,16 +487,28 @@
       "mojoe","player's retreat","lilly's pizza","sitti","caffe luna","cantina 18","david's dumpling",
       "glenwood grill","midtown grille","stanbury","capital club 16","the cortez","calavera","coquette",
       "second empire","angus barn","the fiction kitchen","tupelo honey","42nd street oyster","centro",
-      "j betski","the oxford","royale","mulino","oakleaf","mandolin","st. roch","jolie","mami nora"],
+      "j betski","the oxford","royale","mulino","oakleaf","mandolin","st. roch","jolie","mami nora","ajja"],
     coffee: ["pine state","little native","cup a joe","aversboro","deja brew","raleigh coffee co",
       "jubala","sola coffee","42 and lawrence","the morning times"],
     play: [],
+  };
+
+  // ✨ recently-opened & buzzworthy spots (Raleigh to start), curated from local press
+  // (WALTER, Axios Raleigh, News & Observer, RALtoday). Same normName substring match as
+  // TRENDING. A monthly background job refreshes these and prunes/promotes after ~6 months.
+  const NEW_OPENINGS = {
+    food: ["big cat","botiwalla","kokoro","mala pata"],
+    coffee: ["321 coffee","cottage coffee"],
   };
   function normName(s){ return (s || "").toLowerCase().replace(/&/g, " and ").replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim(); }
   function isTrending(name, m){
     const list = TRENDING[m] || [];
     const n = normName(name);
     return list.some(frag => n.includes(normName(frag)));
+  }
+  function isNew(name, m){
+    const n = normName(name);
+    return (NEW_OPENINGS[m] || []).some(frag => n.includes(normName(frag)));
   }
 
   // National sit-down chains people use this app to avoid (fast food is already
@@ -706,7 +723,7 @@
   // favourite by name near you and merge it in, so named spots always show up.
   const CURATED_CENTER = { lat: 35.7796, lng: -78.6382 };   // Raleigh — where the 🔥 list applies
   async function fetchCurated(Place, found){
-    const names = TRENDING[mode] || [];
+    const names = [...new Set([...(TRENDING[mode] || []), ...(NEW_OPENINGS[mode] || [])])];
     if (!names.length) return [];
     if (mode === "food" && foodCategory && foodCategory.types) return [];   // a specific cuisine — don't inject off-cuisine favourites
     // the curated list is Raleigh-specific, and each by-name lookup is a paid Text Search —
@@ -714,7 +731,11 @@
     if (haversineMiles(coords, CURATED_CENTER) > 45) return [];
     const overall = RADII[radiusIdx];
     const haveNorm = found.map(p => normName(p.displayName));
-    const missing = names.filter(frag => !haveNorm.some(h => h.includes(normName(frag)))).slice(0, 28);
+    const isMissing = frag => !haveNorm.some(h => h.includes(normName(frag)));
+    // new openings get first claim on the capped budget so they always surface
+    const newFrags = (NEW_OPENINGS[mode] || []).filter(isMissing);
+    const favFrags = (TRENDING[mode] || []).filter(isMissing);
+    const missing = [...new Set([...newFrags, ...favFrags])].slice(0, 28);
     if (!missing.length) return [];
     const fields = ["id","displayName","location","photos","rating","userRatingCount",
                     "primaryTypeDisplayName","editorialSummary","priceLevel","priceRange",
@@ -756,6 +777,11 @@
         if (!ll || isBlocked(place.displayName)) return null;
         let photo = "";
         try { photo = place.photos?.[0]?.getURI({ maxWidth: 900 }) || ""; } catch(e){}
+        const isFav = isTrending(place.displayName, mode);
+        const curatedNew = isNew(place.displayName, mode);
+        // conservative "likely new anywhere": solid rating, few-but-real reviews, not already curated
+        const heuristicNew = !isFav && !curatedNew && (place.rating || 0) >= 4.1 &&
+          (place.userRatingCount || 0) >= 4 && (place.userRatingCount || 0) <= 40;
         return {
           place, photo,
           name: place.displayName || "A place",
@@ -768,7 +794,9 @@
           maps: place.googleMapsURI || `https://www.google.com/maps/search/?api=1&query=${ll.lat},${ll.lng}`,
           lat: ll.lat, lng: ll.lng,
           dist: haversineMiles(coords, ll),
-          trending: isTrending(place.displayName, mode),
+          trending: isFav,
+          fresh: curatedNew || heuristicNew,
+          curatedNew,
           reviewLoaded: false,
         };
       }).filter(Boolean);
@@ -777,11 +805,16 @@
         if (append) return needMore();
         return errorScreen("🤷", "Nothing nearby", MODES[mode].none, radiusIdx < RADII.length - 1);
       }
-      // 🔥 curated favourites lead the deck; everyone else ordered by closeness + a little
-      // randomness, lifted by buzz (rating × reviews).
+      // 🔥 favourites + ✨ new openings lead the deck; everyone else ordered by closeness + a
+      // little randomness, lifted by buzz (rating × reviews). Heuristic-new gets a small lift.
       const buzz = r => Math.max((r.rating || 3.5) - 3.2 + Math.min(Math.log10((r.count || 0) + 1), 3) * 0.5, 0.1);
-      list.forEach(r => { r._key = r.dist * (0.5 + Math.random()) / (1 + buzz(r) * 0.3); });
-      list.sort((a, b) => (b.trending ? 1 : 0) - (a.trending ? 1 : 0) || a._key - b._key);
+      const promoted = r => (r.trending || r.curatedNew) ? 1 : 0;
+      list.forEach(r => {
+        let k = r.dist * (0.5 + Math.random()) / (1 + buzz(r) * 0.3);
+        if (r.fresh && !promoted(r)) k *= 0.7;
+        r._key = k;
+      });
+      list.sort((a, b) => promoted(b) - promoted(a) || a._key - b._key);
       if (append){
         const have = new Set(allLoaded.map(r => r.name));
         allLoaded = allLoaded.concat(list.filter(r => !have.has(r.name)));
@@ -867,7 +900,8 @@
       <div class="card-top">
         <div class="chips">
           <span class="cuisine-chip">${esc(rest.cuisine)}</span>
-          ${rest.trending ? `<span class="trending-badge">🔥 Local favorite</span>` : ""}
+          ${rest.fresh ? `<span class="new-badge">✨ New</span>`
+            : rest.trending ? `<span class="trending-badge">🔥 Local favorite</span>` : ""}
         </div>
         ${ratingHtml}
       </div>
@@ -973,7 +1007,8 @@
     document.getElementById("match-name").textContent = rest.name;
     const bits = [rest.cuisine, fmtDist(rest.dist)];
     if (rest.rating) bits.push("★ " + rest.rating.toFixed(1));
-    if (rest.trending) bits.push("🔥 Local favorite");
+    if (rest.fresh) bits.push("✨ New");
+    else if (rest.trending) bits.push("🔥 Local favorite");
     document.getElementById("match-meta").textContent = bits.join(" · ");
     document.getElementById("maps-btn").href = rest.maps;
     const site = document.getElementById("site-btn");
