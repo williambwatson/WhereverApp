@@ -126,19 +126,22 @@
   /* card stack */
   #stack-screen{justify-content:flex-start;}
   .filter-row{flex:0 0 auto;display:flex;flex-wrap:wrap;justify-content:center;gap:8px;padding:0 0 8px;}
-  .filter-chip{font-family:"Manrope";font-size:13px;font-weight:600;letter-spacing:.01em;color:var(--text-dim);
-    background:var(--surface);border:1px solid var(--line);border-radius:999px;
-    padding:8px 16px;cursor:pointer;transition:transform .15s var(--ease), background .2s, color .2s, border-color .2s;touch-action:manipulation;}
-  .filter-chip:active{transform:scale(.95);}
+  .filter-hint{align-self:center;font-size:12px;color:var(--text-dim);letter-spacing:.02em;}
+  .filter-chip{font-family:"Manrope";font-size:13px;font-weight:600;letter-spacing:.01em;color:var(--text);
+    background:var(--surface);border:1px solid rgba(255,255,255,.22);border-radius:999px;
+    padding:8px 15px;cursor:pointer;transition:transform .15s var(--ease), background .2s, color .2s, border-color .2s;touch-action:manipulation;}
+  .filter-chip:active{transform:scale(.95);background:var(--surface-2);}
   .filter-chip.on{color:#1a1205;background:var(--gold);border-color:transparent;box-shadow:0 8px 20px -10px rgba(216,177,90,.7);}
+  .filter-chip.on::before{content:"✓ ";font-weight:800;}
   .deck-msg{max-width:300px;margin:auto;text-align:center;color:var(--text-dim);font-size:15px;line-height:1.55;padding:24px;}
   .saved-list{width:100%;max-width:360px;display:flex;flex-direction:column;gap:8px;max-height:60vh;overflow-y:auto;-webkit-overflow-scrolling:touch;}
-  .saved-item{display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:left;
+  .saved-item{display:flex;flex-direction:column;gap:9px;text-align:left;
     background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;}
   .saved-name{font-weight:600;font-size:14.5px;color:var(--text);}
   .saved-sub{font-size:12px;color:var(--text-dim);text-transform:capitalize;}
-  .saved-actions{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex:0 0 auto;}
+  .saved-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;}
   .saved-actions .linklike{padding:2px 0;}
+  .saved-actions .saved-remove{color:var(--no);margin-left:auto;}
   .deck{position:relative;flex:1 1 auto;width:100%;margin:4px 0;min-height:0;display:flex;align-items:center;justify-content:center;}
   .card{position:absolute;inset:0;margin:auto;width:100%;max-width:380px;max-height:560px;
     border-radius:var(--card-radius);overflow:hidden;
@@ -241,8 +244,8 @@
   <main class="stage">
     <section class="screen on" id="welcome-screen">
       <div class="col stack-up">
-        <div class="lede">Can't<br><em>decide?</em></div>
-        <p class="sub">Pick one below. We'll show you real places nearby — swipe right to keep, left to skip, until you both agree.</p>
+        <div class="lede">“Idk,<br><em>wherever.”</em></div>
+        <p class="sub">The answer to every <em>“where do you wanna go?”</em> Pick a vibe, swipe through real places nearby, and go wherever you both say yes to.</p>
         <div class="mode-row">
           <button class="btn" id="mode-food">
             <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="5.4"/><line x1="4.3" y1="3.5" x2="4.3" y2="20.5"/><line x1="19.7" y1="3.5" x2="19.7" y2="20.5"/></svg>
@@ -298,6 +301,7 @@
 
     <section class="screen" id="stack-screen">
       <div class="filter-row" id="filter-row">
+        <span class="filter-hint">Tap to filter:</span>
         <button class="filter-chip" id="open-chip" aria-pressed="false">🕐 Open now</button>
         <button class="filter-chip" id="dist-chip" aria-pressed="false">📍 Any distance</button>
         <button class="filter-chip food-only" id="fancy-chip" aria-pressed="false">✦ Fancy</button>
@@ -1124,15 +1128,27 @@
     }
     wrap.innerHTML = savedSpots.map((s, i) => `
       <div class="saved-item">
-        <div><div class="saved-name">${esc(s.name)}</div><div class="saved-sub">${esc(s.cuisine || "")}</div></div>
+        <div class="saved-head"><div class="saved-name">${esc(s.name)}</div><div class="saved-sub">${esc(s.cuisine || "")}</div></div>
         <div class="saved-actions">
           <a class="linklike" href="${esc(s.maps)}" target="_blank" rel="noopener">Open in Maps →</a>
-          <button class="linklike saved-remove" data-i="${i}">remove</button>
+          ${s.website ? `<a class="linklike" href="${esc(s.website)}" target="_blank" rel="noopener">Website →</a>` : ""}
+          <button class="linklike saved-share" data-i="${i}">↗ Share</button>
+          <button class="linklike saved-remove" data-i="${i}">Remove</button>
         </div>
       </div>`).join("");
+    wrap.querySelectorAll(".saved-share").forEach(b => b.addEventListener("click", () => shareSpot(savedSpots[Number(b.dataset.i)], b)));
     wrap.querySelectorAll(".saved-remove").forEach(b => b.addEventListener("click", () => {
       savedSpots.splice(Number(b.dataset.i), 1); lsSet(LS_SAVED, savedSpots); updateSavedUI(); renderSaved();
     }));
+  }
+  function flashBtn(btn, txt){ const o = btn.textContent; btn.textContent = txt; setTimeout(() => { btn.textContent = o; }, 1500); }
+  // share a spot via the phone's native share sheet (text/AirDrop/Messages); fall back to copy
+  async function shareSpot(s, btn){
+    const url = s.maps || s.website || "";
+    const data = { title: s.name, text: `Let's go to ${s.name}! ${url}`, url };
+    if (navigator.share){ try { await navigator.share(data); } catch(e){} return; }
+    try { await navigator.clipboard.writeText(`${s.name} — ${url}`); flashBtn(btn, "Link copied ✓"); }
+    catch(e){ window.prompt("Copy this link:", `${s.name} — ${url}`); }
   }
 
   // ---------- home ----------
