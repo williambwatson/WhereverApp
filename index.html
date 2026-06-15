@@ -123,13 +123,20 @@
 
   /* card stack */
   #stack-screen{justify-content:flex-start;}
-  .filter-row{flex:0 0 auto;display:flex;justify-content:center;gap:8px;padding:0 0 8px;}
+  .filter-row{flex:0 0 auto;display:flex;flex-wrap:wrap;justify-content:center;gap:8px;padding:0 0 8px;}
   .filter-chip{font-family:"Manrope";font-size:13px;font-weight:600;letter-spacing:.01em;color:var(--text-dim);
     background:var(--surface);border:1px solid var(--line);border-radius:999px;
     padding:8px 16px;cursor:pointer;transition:transform .15s var(--ease), background .2s, color .2s, border-color .2s;touch-action:manipulation;}
   .filter-chip:active{transform:scale(.95);}
   .filter-chip.on{color:#1a1205;background:var(--gold);border-color:transparent;box-shadow:0 8px 20px -10px rgba(216,177,90,.7);}
   .deck-msg{max-width:300px;margin:auto;text-align:center;color:var(--text-dim);font-size:15px;line-height:1.55;padding:24px;}
+  .saved-list{width:100%;max-width:360px;display:flex;flex-direction:column;gap:8px;max-height:60vh;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+  .saved-item{display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:left;
+    background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;}
+  .saved-name{font-weight:600;font-size:14.5px;color:var(--text);}
+  .saved-sub{font-size:12px;color:var(--text-dim);text-transform:capitalize;}
+  .saved-actions{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex:0 0 auto;}
+  .saved-actions .linklike{padding:2px 0;}
   .deck{position:relative;flex:1 1 auto;width:100%;margin:4px 0;min-height:0;display:flex;align-items:center;justify-content:center;}
   .card{position:absolute;inset:0;margin:auto;width:100%;max-width:380px;max-height:560px;
     border-radius:var(--card-radius);overflow:hidden;
@@ -141,9 +148,9 @@
   .card:active{cursor:grabbing;}
   .card .photo{position:absolute;inset:0;background-size:cover;background-position:center;background-repeat:no-repeat;}
   .card .photo.empty{display:flex;align-items:center;justify-content:center;
-    background:radial-gradient(120% 85% at 50% 22%, rgba(70,184,158,.20), transparent 60%), linear-gradient(165deg,var(--surface),var(--surface-2));}
-  .card .photo.empty svg{width:72px;height:72px;fill:none;stroke:var(--text-dim);stroke-width:1.3;stroke-linecap:round;stroke-linejoin:round;opacity:.9;}
-  .card .photo.empty svg .fill{fill:var(--text-dim);stroke:none;}
+    background:radial-gradient(120% 85% at 50% 22%, rgba(70,184,158,.30), transparent 62%), linear-gradient(165deg,var(--surface),var(--surface-2));}
+  .card .photo.empty svg{width:76px;height:76px;fill:none;stroke:var(--accent);stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round;opacity:1;}
+  .card .photo.empty svg .fill{fill:var(--accent);stroke:none;}
   .card .scrim-top{position:absolute;top:0;left:0;right:0;height:140px;
     background:linear-gradient(to bottom, rgba(6,10,18,.7), rgba(6,10,18,.2) 55%, transparent);}
   .card .scrim{position:absolute;inset:0;
@@ -198,9 +205,12 @@
   .round.small svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;}
   .round.small:active{background:var(--surface-2);}
   .round.disabled{opacity:.3;pointer-events:none;}
-  .hint{flex:0 0 auto;text-align:center;font-size:12px;color:var(--text-dim);opacity:.85;padding-top:6px;}
+  .hint{flex:0 0 auto;text-align:center;font-size:13px;color:var(--text);opacity:.7;padding-top:6px;}
 
-  .match-burst{font-family:"Fraunces";font-weight:600;font-size:clamp(32px,10vw,50px);line-height:1.05;letter-spacing:-.02em;color:var(--accent);}
+  .match-burst{position:relative;font-family:"Fraunces";font-weight:600;font-size:clamp(32px,10vw,50px);line-height:1.05;letter-spacing:-.02em;
+    color:var(--accent);text-shadow:0 0 26px rgba(70,184,158,.45);}
+  .match-burst::before{content:"";position:absolute;inset:-40px -10px;z-index:-1;border-radius:50%;
+    background:radial-gradient(circle, rgba(70,184,158,.22), transparent 70%);animation:pop .7s var(--ease) both;}
   .match-name{font-family:"Fraunces";font-weight:600;font-size:clamp(26px,8vw,38px);line-height:1.08;}
   .match-meta{color:var(--text-dim);font-size:14.5px;}
   .pop{animation:pop .55s var(--ease) both;}
@@ -260,6 +270,7 @@
             <span id="loc-status-label"></span>
             <button class="linklike" id="loc-change">change</button>
           </div>
+          <button class="linklike" id="saved-open" hidden>★ Saved spots</button>
           <!-- community: users email new spots to add. Swap href for a forms.gle URL later if preferred. -->
           <a class="linklike" id="suggest-spot" href="mailto:williambwatson05@gmail.com?subject=Wherever%3A%20suggest%20a%20spot&body=Place%20name%3A%0ACity%2Farea%3A%0AWhy%20it%27s%20great%3A%0A">Know a great new spot? Suggest it →</a>
         </div>
@@ -283,7 +294,10 @@
 
     <section class="screen" id="stack-screen">
       <div class="filter-row" id="filter-row">
-        <button class="filter-chip" id="fancy-chip" aria-pressed="false">✦ Fancy</button>
+        <button class="filter-chip" id="open-chip" aria-pressed="false">🕐 Open now</button>
+        <button class="filter-chip" id="dist-chip" aria-pressed="false">📍 Any distance</button>
+        <button class="filter-chip food-only" id="veg-chip" aria-pressed="false">🌱 Veg-friendly</button>
+        <button class="filter-chip food-only" id="fancy-chip" aria-pressed="false">✦ Fancy</button>
       </div>
       <div class="deck" id="deck"></div>
       <div class="controls">
@@ -303,7 +317,16 @@
         <div class="match-meta" id="match-meta"></div>
         <a class="btn" id="maps-btn" target="_blank" rel="noopener">Open in Maps →</a>
         <a class="btn ghost" id="site-btn" target="_blank" rel="noopener" hidden>View menu / website →</a>
+        <button class="btn ghost" id="save-btn">♡ Save for later</button>
         <button class="btn ghost" id="keep-btn">Keep looking</button>
+      </div>
+    </section>
+
+    <section class="screen" id="saved-screen">
+      <div class="col">
+        <div class="lede" style="font-size:clamp(24px,7vw,34px)">Saved spots</div>
+        <div class="saved-list" id="saved-list"></div>
+        <button class="btn ghost" id="saved-back">← Back</button>
       </div>
     </section>
 
@@ -405,14 +428,25 @@
   let allLoaded = [];         // every place from the last search (sorted nearest-first)
   let queue = [];             // places still to show, after filters
   let fancyOn = false;        // "Fancy" filter toggle
+  let vegOn = false;          // "Veg-friendly" filter (best-effort)
+  let openNowOn = false;      // "Open now" filter
+  let maxMiles = 0;           // distance cap (0 = any)
+  const DIST_STEPS = [0, 1, 3, 5];
   let pinned = null;          // a manually-chosen location {lat,lng}, or null to use GPS
   let gpsCoords = null;       // location granted via the "Use my location" button
   const seen = new Set();
   const history = [];         // places swiped away, for undo / swipe-back
 
+  // ---------- local storage (saved spots + remembered location) ----------
+  const LS_SAVED = "wherever:v1:saved", LS_LOC = "wherever:v1:loc";
+  function lsGet(key, fallback){ try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch(e){ return fallback; } }
+  function lsSet(key, val){ try { localStorage.setItem(key, JSON.stringify(val)); } catch(e){} }
+  let savedSpots = lsGet(LS_SAVED, []);
+
   const screens = {
     welcome: document.getElementById("welcome-screen"),
     category: document.getElementById("cat-screen"),
+    saved:   document.getElementById("saved-screen"),
     loading: document.getElementById("loading-screen"),
     stack:   document.getElementById("stack-screen"),
     match:   document.getElementById("match-screen"),
@@ -474,6 +508,35 @@
   function summaryText(s){ return (typeof s === "string") ? s : (s && s.text) || ""; }
   function truncate(t, n){ t = (t||"").trim(); return t.length > n ? t.slice(0, n).trim() + "…" : t; }
   function esc(s){ const d = document.createElement("div"); d.textContent = s ?? ""; return d.innerHTML; }
+
+  // best-effort "vegetarian/vegan-friendly" — Google has no reliable flag, so match veg signals
+  // in the name/cuisine/description plus cuisines that dependably have strong veg options.
+  function isVeg(r){
+    const hay = ((r.cuisine || "") + " " + (r.name || "") + " " + (r.desc || "")).toLowerCase();
+    return /(vegan|vegetarian|plant.?based|plant.?forward|meat.?free|veggie)/.test(hay)
+      || /(indian|thai|mediterranean|middle.?eastern|ethiopian|falafel|lebanese|buddhist)/.test(hay);
+  }
+  // is the place open right now? returns true / false / null(unknown) from regularOpeningHours.
+  function isOpenNow(place){
+    const periods = place.regularOpeningHours && place.regularOpeningHours.periods;
+    if (!periods || !periods.length) return null;
+    const off = (typeof place.utcOffsetMinutes === "number") ? place.utcOffsetMinutes : null;
+    const now = new Date();
+    const local = off != null ? new Date(now.getTime() + off * 60000) : now;
+    const day = off != null ? local.getUTCDay() : local.getDay();
+    const mins = off != null ? local.getUTCHours() * 60 + local.getUTCMinutes() : local.getHours() * 60 + local.getMinutes();
+    const cur0 = day * 1440 + mins;
+    for (const p of periods){
+      if (!p.open) continue;
+      if (p.open && !p.close) return true;                 // open 24/7
+      const start = p.open.day * 1440 + p.open.hour * 60 + p.open.minute;
+      let end = p.close.day * 1440 + p.close.hour * 60 + p.close.minute;
+      if (end <= start) end += 7 * 1440;                   // closes after midnight / wraps the week
+      let cur = cur0; if (cur < start) cur += 7 * 1440;
+      if (cur >= start && cur < end) return true;
+    }
+    return false;
+  }
 
   // 🔥 curated local favourites (Raleigh to start), from Reddit / TikTok / local press.
   // Matched as normalised substrings of a place's name. Easy to expand to other cities.
@@ -603,6 +666,7 @@
         return errorScreen("🗺️", "Couldn't find that", "Try a city and state, a ZIP code, or a full street address.", false, true);
       }
       pinned = ll; coords = ll; radiusIdx = 0; seen.clear();
+      lsSet(LS_LOC, { kind: "pin", lat: ll.lat, lng: ll.lng, label: "📍 Near " + text });
       loadRestaurants();
     } catch (e){
       console.error(e);
@@ -643,6 +707,7 @@
         pinned = null;
         btn.textContent = prev; btn.disabled = false;
         showLocStatus("✓ Using your location");
+        lsSet(LS_LOC, { kind: "gps", lat: gpsCoords.lat, lng: gpsCoords.lng });
       },
       err => {
         btn.textContent = prev; btn.disabled = false;
@@ -668,6 +733,7 @@
       if (!ll){ note.textContent = "Couldn't find that place — try a city & state or ZIP."; note.hidden = false; return; }
       pinned = ll; gpsCoords = null;
       showLocStatus("📍 Near " + text);
+      lsSet(LS_LOC, { kind: "pin", lat: ll.lat, lng: ll.lng, label: "📍 Near " + text });
     } catch (e){
       console.error(e);
       note.textContent = "Couldn't look that up right now. Try again.";
@@ -688,7 +754,7 @@
     if (mode === "food" && foodCategory && foodCategory.types){ inc = foodCategory.types; exc = CAT_EXCLUDE; }
     const fields = ["id","displayName","location","photos","rating","userRatingCount",
                     "primaryTypeDisplayName","editorialSummary","priceLevel","priceRange",
-                    "websiteURI","googleMapsURI"];
+                    "websiteURI","googleMapsURI","regularOpeningHours","utcOffsetMinutes"];
     const overall = RADII[radiusIdx];
     const step = Math.round(overall / 3);        // ~7 tiles per axis (~37 searches) for fuller coverage
     const cell = Math.round(overall * 0.42);     // each tile's radius (tiles overlap, no gaps)
@@ -739,7 +805,7 @@
     if (!missing.length) return [];
     const fields = ["id","displayName","location","photos","rating","userRatingCount",
                     "primaryTypeDisplayName","editorialSummary","priceLevel","priceRange",
-                    "websiteURI","googleMapsURI"];
+                    "websiteURI","googleMapsURI","regularOpeningHours","utcOffsetMinutes"];
     const hint = mode === "coffee" ? " coffee" : mode === "play" ? "" : " restaurant";
     const incl = mode === "coffee" ? "coffee_shop" : mode === "play" ? null : "restaurant";
     const got = await Promise.all(missing.map(async frag => {
@@ -797,6 +863,7 @@
           trending: isFav,
           fresh: curatedNew || heuristicNew,
           curatedNew,
+          openNow: isOpenNow(place),
           reviewLoaded: false,
         };
       }).filter(Boolean);
@@ -834,13 +901,21 @@
   // derive the visible deck from the full result set through the active filters
   function rebuildQueue(){
     const available = allLoaded.filter(r => !seen.has(r.name));
-    queue = available.filter(r => !fancyOn || isFancy(r));
+    queue = available.filter(r =>
+      (!fancyOn || isFancy(r)) &&
+      (!vegOn || isVeg(r)) &&
+      (!openNowOn || r.openNow !== false) &&     // keep unknown-hours; drop only confirmed-closed
+      (!maxMiles || r.dist <= maxMiles)
+    );
     if (!queue.length){
       if (!available.length) return needMore();   // genuinely out — auto-expand the radius
-      return deckMessage("No fancy spots in this radius. Tap the Fancy filter off to see everything, or search a wider area.");
+      return deckMessage(filtersActive()
+        ? "No spots match your filters here. Tap a filter off, or search a wider area."
+        : "Nothing left in this radius. Search a wider area or a different place.");
     }
     buildDeck();
   }
+  function filtersActive(){ return fancyOn || vegOn || openNowOn || maxMiles > 0; }
 
   // "swipe forever": when you run out, quietly widen the search until the largest radius
   function needMore(){
@@ -939,13 +1014,15 @@
     let startX = 0, startY = 0, dx = 0, dy = 0, dragging = false, id = null;
     const yes = card.querySelector(".stamp.yes");
     const no  = card.querySelector(".stamp.no");
+    // commit threshold scales with card width so it feels the same on every iPhone
+    const th = () => Math.max(60, card.offsetWidth * 0.22);
 
     const down = e => { dragging = true; id = e.pointerId; startX = e.clientX; startY = e.clientY; dx = 0; dy = 0; card.style.transition = "none"; card.setPointerCapture?.(id); };
     const move = e => {
       if (!dragging) return;
       dx = e.clientX - startX; dy = e.clientY - startY;
       card.style.transform = `translate(${dx}px, ${dy}px) rotate(${dx/18}deg)`;
-      const k = Math.min(Math.abs(dx) / 110, 1);
+      const k = Math.min(Math.abs(dx) / th(), 1);   // stamp hits full opacity exactly at the commit line
       yes.style.opacity = dx > 0 ? k : 0;
       no.style.opacity  = dx < 0 ? k : 0;
     };
@@ -953,8 +1030,9 @@
       if (!dragging) return;
       dragging = false;
       card.style.transition = "transform .4s var(--ease)";
-      if (dx > 95) commit(card, "yes");
-      else if (dx < -95) commit(card, "no");
+      const t = th();
+      if (dx > t) commit(card, "yes");
+      else if (dx < -t) commit(card, "no");
       else { card.style.transform = "translateY(0) scale(1)"; yes.style.opacity = 0; no.style.opacity = 0; }
     };
     card.addEventListener("pointerdown", down);
@@ -1013,6 +1091,9 @@
     document.getElementById("maps-btn").href = rest.maps;
     const site = document.getElementById("site-btn");
     if (rest.website){ site.href = rest.website; site.textContent = MODES[mode].siteLabel; site.hidden = false; } else { site.hidden = true; }
+    const sb = document.getElementById("save-btn");
+    sb.textContent = isSaved(rest.name) ? "✓ Saved" : "♡ Save for later";
+    sb.onclick = () => { toggleSave(rest); sb.textContent = isSaved(rest.name) ? "✓ Saved" : "♡ Save for later"; };
     const burst = document.querySelector(".match-burst");
     burst.textContent = MODES[mode].burst;
     burst.classList.remove("pop"); void burst.offsetWidth; burst.classList.add("pop");
@@ -1029,6 +1110,38 @@
     show("error");
   }
 
+  // ---------- saved spots (localStorage wishlist) ----------
+  function isSaved(name){ return savedSpots.some(s => s.name === name); }
+  function toggleSave(rest){
+    if (isSaved(rest.name)) savedSpots = savedSpots.filter(s => s.name !== rest.name);
+    else savedSpots.unshift({ name: rest.name, cuisine: rest.cuisine, maps: rest.maps, website: rest.website });
+    lsSet(LS_SAVED, savedSpots);
+    updateSavedUI();
+  }
+  function updateSavedUI(){
+    const link = document.getElementById("saved-open");
+    link.textContent = `★ Saved spots (${savedSpots.length})`;
+    link.hidden = savedSpots.length === 0;
+  }
+  function renderSaved(){
+    const wrap = document.getElementById("saved-list");
+    if (!savedSpots.length){
+      wrap.innerHTML = `<p class="sub">No saved spots yet. Tap “♡ Save for later” on a match to keep it here.</p>`;
+      return;
+    }
+    wrap.innerHTML = savedSpots.map((s, i) => `
+      <div class="saved-item">
+        <div><div class="saved-name">${esc(s.name)}</div><div class="saved-sub">${esc(s.cuisine || "")}</div></div>
+        <div class="saved-actions">
+          <a class="linklike" href="${esc(s.maps)}" target="_blank" rel="noopener">Open in Maps →</a>
+          <button class="linklike saved-remove" data-i="${i}">remove</button>
+        </div>
+      </div>`).join("");
+    wrap.querySelectorAll(".saved-remove").forEach(b => b.addEventListener("click", () => {
+      savedSpots.splice(Number(b.dataset.i), 1); lsSet(LS_SAVED, savedSpots); updateSavedUI(); renderSaved();
+    }));
+  }
+
   // ---------- home ----------
   function goHome(){
     history.length = 0; updateUndo();
@@ -1036,18 +1149,33 @@
   }
 
   // ---------- wiring ----------
+  // Fancy + Veg only make sense for food; Open-now + distance apply to every mode.
   function setFancyVisible(v){
-    document.getElementById("filter-row").style.display = v ? "flex" : "none";
+    document.querySelectorAll(".filter-chip.food-only").forEach(c => c.style.display = v ? "" : "none");
     if (!v){
-      fancyOn = false;
-      const c = document.getElementById("fancy-chip");
-      c.classList.remove("on"); c.setAttribute("aria-pressed", "false");
+      fancyOn = false; vegOn = false;
+      ["fancy-chip", "veg-chip"].forEach(id => {
+        const c = document.getElementById(id); c.classList.remove("on"); c.setAttribute("aria-pressed", "false");
+      });
     }
   }
-  document.getElementById("fancy-chip").addEventListener("click", (e) => {
-    fancyOn = !fancyOn;
-    e.currentTarget.classList.toggle("on", fancyOn);
-    e.currentTarget.setAttribute("aria-pressed", String(fancyOn));
+  function bindToggle(id, get, set){
+    document.getElementById(id).addEventListener("click", (e) => {
+      set(!get());
+      e.currentTarget.classList.toggle("on", get());
+      e.currentTarget.setAttribute("aria-pressed", String(get()));
+      rebuildQueue();
+    });
+  }
+  bindToggle("fancy-chip", () => fancyOn, v => fancyOn = v);
+  bindToggle("veg-chip", () => vegOn, v => vegOn = v);
+  bindToggle("open-chip", () => openNowOn, v => openNowOn = v);
+  document.getElementById("dist-chip").addEventListener("click", (e) => {
+    maxMiles = DIST_STEPS[(DIST_STEPS.indexOf(maxMiles) + 1) % DIST_STEPS.length];
+    const chip = e.currentTarget;
+    chip.textContent = maxMiles ? `📍 Within ${maxMiles} mi` : "📍 Any distance";
+    chip.classList.toggle("on", maxMiles > 0);
+    chip.setAttribute("aria-pressed", String(maxMiles > 0));
     rebuildQueue();
   });
   function openCategories(){
@@ -1073,7 +1201,9 @@
   document.getElementById("welcome-loc-set").addEventListener("click", setPinnedFromInput);
   document.getElementById("welcome-loc-input").addEventListener("keydown", (e) => { if (e.key === "Enter") setPinnedFromInput(); });
   document.getElementById("manual-cancel").addEventListener("click", showDefaultLoc);
-  document.getElementById("loc-change").addEventListener("click", () => { pinned = null; gpsCoords = null; showDefaultLoc(); });
+  document.getElementById("loc-change").addEventListener("click", () => { pinned = null; gpsCoords = null; lsSet(LS_LOC, null); showDefaultLoc(); });
+  document.getElementById("saved-open").addEventListener("click", () => { renderSaved(); show("saved"); });
+  document.getElementById("saved-back").addEventListener("click", () => show("welcome"));
   document.getElementById("undo-btn").addEventListener("click", undoLast);
   document.getElementById("home-btn").addEventListener("click", goHome);
   document.getElementById("brand-home").addEventListener("click", goHome);
@@ -1085,6 +1215,16 @@
   });
   document.getElementById("retry-btn").addEventListener("click", () => { if (coords) loadRestaurants(); else getLocation(); });
   document.getElementById("wider-btn").addEventListener("click", needMore);
+
+  // ---------- init: restore saved count + last location ----------
+  (function init(){
+    updateSavedUI();
+    const last = lsGet(LS_LOC, null);
+    if (last && typeof last.lat === "number" && typeof last.lng === "number"){
+      if (last.kind === "pin"){ pinned = { lat: last.lat, lng: last.lng }; showLocStatus(last.label || "📍 Your last place"); }
+      else { gpsCoords = { lat: last.lat, lng: last.lng }; showLocStatus("✓ Using your last location"); }
+    }
+  })();
 })();
 </script>
 </body>
