@@ -259,7 +259,7 @@
     <section class="screen on" id="welcome-screen">
       <div class="col stack-up">
         <div class="lede">“Idk,<br><em>wherever.”</em></div>
-        <p class="sub">The answer to every <em>“where do you wanna go?”</em> Pick a vibe, swipe through real places nearby, and go wherever you both say yes to.</p>
+        <p class="sub">Can't decide where to go? Swipe real spots near you — food, coffee, or a bar — until you both land on one.</p>
         <div class="mode-row">
           <button class="btn" id="mode-food">
             <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="5.4"/><line x1="4.3" y1="3.5" x2="4.3" y2="20.5"/><line x1="19.7" y1="3.5" x2="19.7" y2="20.5"/></svg>
@@ -269,9 +269,9 @@
             <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h11v6a4 4 0 0 1-4 4H9a4 4 0 0 1-4-4z"/><path d="M16 9h2.5a2.5 2.5 0 0 1 0 5H16"/><line x1="8" y1="3.5" x2="8" y2="5.5"/><line x1="12" y1="3.5" x2="12" y2="5.5"/></svg>
             Grab coffee
           </button>
-          <button class="btn alt" id="mode-play">
-            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><polygon class="fill" points="15.6,8.4 10.4,10.4 8.4,15.6 13.6,13.6"/></svg>
-            Find something to do
+          <button class="btn alt" id="mode-bars">
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16l-8 8z"/><line x1="12" y1="13" x2="12" y2="20"/><line x1="8" y1="20" x2="16" y2="20"/></svg>
+            Grab a drink
           </button>
         </div>
         <div class="loc-pick">
@@ -403,14 +403,12 @@
       burst: "It's dinner!",
       siteLabel: "View menu →",
     },
-    play: {
-      includedTypes: ["tourist_attraction","amusement_park","amusement_center","bowling_alley",
-        "movie_theater","art_gallery","museum","aquarium","zoo","night_club","park",
-        "casino","performing_arts_theater","hiking_area"],
-      excludedPrimaryTypes: [],
-      loading: "Scouting things to do nearby…",
-      none: "We couldn't find activities in this radius. Want to cast a wider net?",
-      burst: "Let's do it!",
+    bars: {
+      includedTypes: ["bar","pub","cocktail_bar","irish_pub","beer_garden","brewery"],
+      excludedPrimaryTypes: ["liquor_store","grocery_store","convenience_store","gas_station"],
+      loading: "Finding bars nearby…",
+      none: "We couldn't find bars in this radius. Want to cast a wider net?",
+      burst: "Cheers!",
       siteLabel: "Visit website →",
     },
     coffee: {
@@ -576,7 +574,7 @@
       "j betski","the oxford","royale","mulino","oakleaf","mandolin","st. roch","jolie","mami nora","ajja"],
     coffee: ["pine state","little native","cup a joe","aversboro","deja brew","raleigh coffee co",
       "jubala","sola coffee","42 and lawrence","the morning times"],
-    play: [],
+    bars: [],
   };
 
   // ✨ recently-opened & buzzworthy spots (Raleigh to start), curated from local press
@@ -621,12 +619,7 @@
   };
   function typeIcon(cuisine){
     const c = (cuisine || "").toLowerCase();
-    if (mode === "play"){
-      if (/(movie|cinema|theat|performing|amusement|arcade)/.test(c)) return ICONS.film;
-      if (/(museum|art|gallery|aquarium)/.test(c)) return ICONS.museum;
-      if (/(park|garden|zoo|hiking|trail|nature)/.test(c)) return ICONS.tree;
-      return ICONS.compass;
-    }
+    if (mode === "bars") return ICONS.glass;
     if (/(coffee|caf|breakfast|brunch|bakery|tea|dessert|donut|ice ?cream)/.test(c)) return ICONS.cup;
     if (/(bar|pub|brewery|wine|cocktail|night ?club|lounge)/.test(c)) return ICONS.glass;
     if (/pizza/.test(c)) return ICONS.pizza;
@@ -830,8 +823,8 @@
     const fields = ["id","displayName","location","photos","rating","userRatingCount",
                     "primaryTypeDisplayName","editorialSummary","priceLevel","priceRange",
                     "websiteURI","googleMapsURI","regularOpeningHours","utcOffsetMinutes"];
-    const hint = mode === "coffee" ? " coffee" : mode === "play" ? "" : " restaurant";
-    const incl = mode === "coffee" ? "coffee_shop" : mode === "play" ? null : "restaurant";
+    const hint = mode === "coffee" ? " coffee" : mode === "bars" ? " bar" : " restaurant";
+    const incl = mode === "coffee" ? "coffee_shop" : mode === "bars" ? "bar" : "restaurant";
     const got = await Promise.all(missing.map(async frag => {
       const req = { textQuery: frag + hint, fields, maxResultCount: 1,
         locationBias: { center: coords, radius: Math.min(overall, 40000) } };
@@ -1278,7 +1271,7 @@
   document.getElementById("cat-go").addEventListener("click", () => { setFancyVisible(true); getLocation(); });
   document.getElementById("mode-food").addEventListener("click", () => { mode = "food"; openCategories(); });
   document.getElementById("mode-coffee").addEventListener("click", () => { mode = "coffee"; setFancyVisible(false); getLocation(); });
-  document.getElementById("mode-play").addEventListener("click", () => { mode = "play"; setFancyVisible(false); getLocation(); });
+  document.getElementById("mode-bars").addEventListener("click", () => { mode = "bars"; setFancyVisible(false); getLocation(); });
   document.getElementById("loc-go").addEventListener("click", searchTypedLocation);
   document.getElementById("loc-input").addEventListener("keydown", (e) => { if (e.key === "Enter") searchTypedLocation(); });
   document.getElementById("use-location").addEventListener("click", requestMyLocation);
