@@ -125,23 +125,30 @@
 
   /* card stack */
   #stack-screen{justify-content:flex-start;}
-  .filter-row{flex:0 0 auto;display:flex;flex-wrap:wrap;justify-content:center;gap:8px;padding:0 0 8px;}
-  .filter-hint{align-self:center;font-size:12px;color:var(--text-dim);letter-spacing:.02em;}
-  .filter-chip{font-family:"Manrope";font-size:13px;font-weight:600;letter-spacing:.01em;color:var(--text);
+  .filter-row{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:7px;padding:0 0 8px;}
+  .filter-label{font-size:10.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--text-dim);}
+  .filter-chips{display:flex;gap:8px;width:100%;max-width:330px;}
+  .filter-chip{flex:1 1 0;min-width:0;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    font-family:"Manrope";font-size:12.5px;font-weight:600;letter-spacing:.01em;color:var(--text);
     background:var(--surface);border:1px solid rgba(255,255,255,.22);border-radius:999px;
-    padding:8px 15px;cursor:pointer;transition:transform .15s var(--ease), background .2s, color .2s, border-color .2s;touch-action:manipulation;}
+    padding:9px 10px;cursor:pointer;transition:transform .15s var(--ease), background .2s, color .2s, border-color .2s;touch-action:manipulation;}
   .filter-chip:active{transform:scale(.95);background:var(--surface-2);}
   .filter-chip.on{color:#1a1205;background:var(--gold);border-color:transparent;box-shadow:0 8px 20px -10px rgba(216,177,90,.7);}
-  .filter-chip.on::before{content:"✓ ";font-weight:800;}
   .deck-msg{max-width:300px;margin:auto;text-align:center;color:var(--text-dim);font-size:15px;line-height:1.55;padding:24px;}
-  .saved-list{width:100%;max-width:360px;display:flex;flex-direction:column;gap:8px;max-height:60vh;overflow-y:auto;-webkit-overflow-scrolling:touch;}
-  .saved-item{display:flex;flex-direction:column;gap:9px;text-align:left;
-    background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;}
-  .saved-name{font-weight:600;font-size:14.5px;color:var(--text);}
+  .saved-list{width:100%;max-width:360px;display:flex;flex-direction:column;gap:10px;max-height:62vh;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:2px;}
+  .saved-item{position:relative;display:flex;flex-direction:column;gap:3px;text-align:left;
+    background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px 16px;}
+  .saved-name{font-weight:700;font-size:15px;color:var(--text);padding-right:26px;line-height:1.2;}
   .saved-sub{font-size:12px;color:var(--text-dim);text-transform:capitalize;}
-  .saved-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;}
-  .saved-actions .linklike{padding:2px 0;}
-  .saved-actions .saved-remove{color:var(--no);margin-left:auto;}
+  .saved-acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
+  .saved-act{font-family:"Manrope";font-size:12.5px;font-weight:600;color:var(--accent);text-decoration:none;
+    background:var(--surface-2);border:1px solid var(--line);border-radius:999px;padding:7px 13px;cursor:pointer;
+    transition:transform .15s var(--ease), background .2s;}
+  .saved-act:active{transform:scale(.96);background:rgba(70,184,158,.14);}
+  .saved-act.primary{color:#04130f;background:var(--accent);border-color:transparent;}
+  .saved-x{position:absolute;top:9px;right:9px;width:28px;height:28px;border-radius:50%;border:none;
+    background:transparent;color:var(--text-dim);font-size:15px;line-height:1;cursor:pointer;display:grid;place-items:center;}
+  .saved-x:active{background:var(--surface-2);color:var(--no);}
   .deck{position:relative;flex:1 1 auto;width:100%;margin:4px 0;min-height:0;display:flex;align-items:center;justify-content:center;}
   .card{position:absolute;inset:0;margin:auto;width:100%;max-width:380px;max-height:560px;
     border-radius:var(--card-radius);overflow:hidden;
@@ -301,10 +308,12 @@
 
     <section class="screen" id="stack-screen">
       <div class="filter-row" id="filter-row">
-        <span class="filter-hint">Tap to filter:</span>
-        <button class="filter-chip" id="open-chip" aria-pressed="false">🕐 Open now</button>
-        <button class="filter-chip" id="dist-chip" aria-pressed="false">📍 Any distance</button>
-        <button class="filter-chip food-only" id="fancy-chip" aria-pressed="false">✦ Fancy</button>
+        <div class="filter-label">Filters · tap to toggle</div>
+        <div class="filter-chips">
+          <button class="filter-chip" id="open-chip" aria-pressed="false">🕐 Open now</button>
+          <button class="filter-chip" id="dist-chip" aria-pressed="false">📍 Any</button>
+          <button class="filter-chip food-only" id="fancy-chip" aria-pressed="false">✦ Fancy</button>
+        </div>
       </div>
       <div class="deck" id="deck"></div>
       <div class="controls">
@@ -418,6 +427,7 @@
     { key: "indian",   label: "Indian",             types: ["indian_restaurant"] },
     { key: "american", label: "American",           types: ["american_restaurant"] },
     { key: "burgers",  label: "Burgers",            types: ["hamburger_restaurant"] },
+    { key: "sandwich", label: "Sandwiches",         types: ["sandwich_shop"] },
     { key: "pizza",    label: "Pizza",              types: ["pizza_restaurant"] },
     { key: "bbq",      label: "BBQ",                types: ["barbecue_restaurant"] },
     { key: "seafood",  label: "Seafood",            types: ["seafood_restaurant"] },
@@ -1128,16 +1138,17 @@
     }
     wrap.innerHTML = savedSpots.map((s, i) => `
       <div class="saved-item">
-        <div class="saved-head"><div class="saved-name">${esc(s.name)}</div><div class="saved-sub">${esc(s.cuisine || "")}</div></div>
-        <div class="saved-actions">
-          <a class="linklike" href="${esc(s.maps)}" target="_blank" rel="noopener">Open in Maps →</a>
-          ${s.website ? `<a class="linklike" href="${esc(s.website)}" target="_blank" rel="noopener">Website →</a>` : ""}
-          <button class="linklike saved-share" data-i="${i}">↗ Share</button>
-          <button class="linklike saved-remove" data-i="${i}">Remove</button>
+        <button class="saved-x" data-i="${i}" aria-label="Remove ${esc(s.name)}">✕</button>
+        <div class="saved-name">${esc(s.name)}</div>
+        ${s.cuisine ? `<div class="saved-sub">${esc(s.cuisine)}</div>` : ""}
+        <div class="saved-acts">
+          <a class="saved-act primary" href="${esc(s.maps)}" target="_blank" rel="noopener">Open in Maps</a>
+          ${s.website ? `<a class="saved-act" href="${esc(s.website)}" target="_blank" rel="noopener">Website</a>` : ""}
+          <button class="saved-act saved-share" data-i="${i}">↗ Share</button>
         </div>
       </div>`).join("");
     wrap.querySelectorAll(".saved-share").forEach(b => b.addEventListener("click", () => shareSpot(savedSpots[Number(b.dataset.i)], b)));
-    wrap.querySelectorAll(".saved-remove").forEach(b => b.addEventListener("click", () => {
+    wrap.querySelectorAll(".saved-x").forEach(b => b.addEventListener("click", () => {
       savedSpots.splice(Number(b.dataset.i), 1); lsSet(LS_SAVED, savedSpots); updateSavedUI(); renderSaved();
     }));
   }
@@ -1179,7 +1190,7 @@
   document.getElementById("dist-chip").addEventListener("click", (e) => {
     maxMiles = DIST_STEPS[(DIST_STEPS.indexOf(maxMiles) + 1) % DIST_STEPS.length];
     const chip = e.currentTarget;
-    chip.textContent = maxMiles ? `📍 Within ${maxMiles} mi` : "📍 Any distance";
+    chip.textContent = maxMiles ? `📍 ${maxMiles} mi` : "📍 Any";
     chip.classList.toggle("on", maxMiles > 0);
     chip.setAttribute("aria-pressed", String(maxMiles > 0));
     rebuildQueue();
