@@ -404,9 +404,9 @@
       siteLabel: "View menu →",
     },
     bars: {
-      includedTypes: ["bar","pub","cocktail_bar","irish_pub","beer_garden","brewery"],
+      includedTypes: ["bar","pub","cocktail_bar","irish_pub","beer_garden","brewery","wine_bar","night_club"],
       excludedPrimaryTypes: ["liquor_store","grocery_store","convenience_store","gas_station"],
-      loading: "Finding bars nearby…",
+      loading: "Finding bars & clubs nearby…",
       none: "We couldn't find bars in this radius. Want to cast a wider net?",
       burst: "Cheers!",
       siteLabel: "Visit website →",
@@ -579,7 +579,11 @@
     bars: ["fox liquor","the haymaker","blind barbour","william and company","watts and ward",
       "foundation","c grace","ruby deluxe","highgarden","the architect","sidebar","crunkleton",
       "dram and draught","raleigh beer garden","crank arm","trophy","raleigh times","the cardinal",
-      "lucky b","neptunes","mitch","slim s","pour house","bittersweet","whiskey kitchen"],
+      "lucky b","neptunes","mitch","slim s","pour house","bittersweet","whiskey kitchen",
+      // wine bars
+      "cellar 72","barcelona","vita vite","hippo wine","seaboard wine",
+      // dance clubs / nightlife
+      "alchemy","ambis","440 nightclub","legends nightclub","loafers","zenith","coco vice","terminal 8"],
   };
 
   // ✨ recently-opened & buzzworthy spots (Raleigh to start), curated from local press
@@ -588,7 +592,7 @@
   const NEW_OPENINGS = {
     food: ["big cat","botiwalla","kokoro","mala pata"],
     coffee: ["321 coffee","cottage coffee"],
-    bars: ["capulet","bend bar","stella","dry cleaners","garden bar","sous terre","natural science","winchester"],
+    bars: ["capulet","bend bar","stella","dry cleaners","garden bar","sous terre","natural science","winchester","napa bistro"],
   };
   function normName(s){ return (s || "").toLowerCase().replace(/&/g, " and ").replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim(); }
   function isTrending(name, m){
