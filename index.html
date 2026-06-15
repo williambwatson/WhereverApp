@@ -93,6 +93,12 @@
   .btn.ghost:active{background:rgba(255,255,255,.05);}
   .btn.alt{background:linear-gradient(135deg,#4c74a6,#34537f);box-shadow:0 12px 26px -14px rgba(63,100,145,.9);}
   .btn.coffee{background:linear-gradient(135deg,#b3895c,#7e5f3f);box-shadow:0 12px 26px -14px rgba(154,123,87,.9);}
+  .cat-grid{display:flex;flex-wrap:wrap;justify-content:center;gap:9px;width:100%;max-width:360px;}
+  .cat-chip{font-family:"Manrope";font-weight:600;font-size:14px;color:var(--text);background:var(--surface);
+    border:1px solid var(--line);border-radius:13px;padding:11px 15px;cursor:pointer;
+    transition:transform .14s var(--ease),background .2s,border-color .2s;touch-action:manipulation;}
+  .cat-chip:active{transform:scale(.96);background:var(--surface-2);}
+  .cat-chip.general{background:linear-gradient(135deg,#2fa78d,#1c8068);border-color:transparent;color:#fff;font-weight:700;}
   .mode-row{display:flex;flex-direction:column;gap:11px;width:100%;max-width:330px;}
   .mode-row .btn{width:100%;display:inline-flex;align-items:center;justify-content:center;gap:10px;padding-top:16px;padding-bottom:16px;}
   .manual{display:flex;flex-direction:column;gap:10px;width:100%;max-width:330px;}
@@ -255,6 +261,14 @@
       </div>
     </section>
 
+    <section class="screen" id="cat-screen">
+      <div class="col stack-up">
+        <div class="lede" style="font-size:clamp(26px,8vw,40px)">What sounds<br><em>good?</em></div>
+        <p class="sub">Pick a cuisine — or just see everything nearby.</p>
+        <div class="cat-grid" id="cat-grid"></div>
+      </div>
+    </section>
+
     <section class="screen" id="loading-screen">
       <div class="col">
         <div class="spinner"></div>
@@ -356,8 +370,31 @@
     },
   };
 
+  // Cuisine sub-categories for "Grab a bite". "Everything" uses the broad search above;
+  // each cuisine narrows the search to those Google place types (still no fast food).
+  const FOOD_CATS = [
+    { key: "general",  label: "Everything",         types: null },
+    { key: "italian",  label: "Italian",            types: ["italian_restaurant"] },
+    { key: "mexican",  label: "Mexican",            types: ["mexican_restaurant"] },
+    { key: "sushi",    label: "Sushi & Japanese",   types: ["sushi_restaurant","japanese_restaurant","ramen_restaurant"] },
+    { key: "chinese",  label: "Chinese",            types: ["chinese_restaurant"] },
+    { key: "seasia",   label: "Thai & Vietnamese",  types: ["thai_restaurant","vietnamese_restaurant"] },
+    { key: "korean",   label: "Korean",             types: ["korean_restaurant"] },
+    { key: "indian",   label: "Indian",             types: ["indian_restaurant"] },
+    { key: "american", label: "American",           types: ["american_restaurant"] },
+    { key: "burgers",  label: "Burgers",            types: ["hamburger_restaurant"] },
+    { key: "pizza",    label: "Pizza",              types: ["pizza_restaurant"] },
+    { key: "bbq",      label: "BBQ",                types: ["barbecue_restaurant"] },
+    { key: "seafood",  label: "Seafood",            types: ["seafood_restaurant"] },
+    { key: "steak",    label: "Steakhouse",         types: ["steak_house"] },
+    { key: "medit",    label: "Mediterranean",      types: ["mediterranean_restaurant","greek_restaurant","middle_eastern_restaurant","lebanese_restaurant","turkish_restaurant"] },
+    { key: "brunch",   label: "Breakfast & Brunch", types: ["breakfast_restaurant","brunch_restaurant"] },
+  ];
+  const CAT_EXCLUDE = ["fast_food_restaurant","meal_takeaway","meal_delivery"];
+
   // ---------- state ----------
   let mode = "food";
+  let foodCategory = null;    // chosen cuisine for "Grab a bite", or null/general = Everything
   let coords = null;          // {lat, lng}
   let radiusIdx = 0;
   let allLoaded = [];         // every place from the last search (sorted nearest-first)
@@ -370,6 +407,7 @@
 
   const screens = {
     welcome: document.getElementById("welcome-screen"),
+    category: document.getElementById("cat-screen"),
     loading: document.getElementById("loading-screen"),
     stack:   document.getElementById("stack-screen"),
     match:   document.getElementById("match-screen"),
@@ -628,6 +666,9 @@
   // tile in parallel, then merge + de-duplicate by place id.
   async function searchAllNearby(Place, rank){
     const m = MODES[mode];
+    // a chosen cuisine narrows the search to its place types (still excluding fast food)
+    let inc = m.includedTypes, exc = m.excludedPrimaryTypes;
+    if (mode === "food" && foodCategory && foodCategory.types){ inc = foodCategory.types; exc = CAT_EXCLUDE; }
     const fields = ["id","displayName","location","photos","rating","userRatingCount",
                     "primaryTypeDisplayName","editorialSummary","priceLevel","priceRange",
                     "websiteURI","googleMapsURI"];
@@ -645,8 +686,8 @@
     if (!pts.length) pts.push(coords);
     const makeReq = (center) => {
       const r = { fields, locationRestriction: { center, radius: cell },
-        includedTypes: m.includedTypes, maxResultCount: 20, rankPreference: rank.POPULARITY };
-      if (m.excludedPrimaryTypes.length) r.excludedPrimaryTypes = m.excludedPrimaryTypes;
+        includedTypes: inc, maxResultCount: 20, rankPreference: rank.POPULARITY };
+      if (exc.length) r.excludedPrimaryTypes = exc;
       return r;
     };
     const batches = await Promise.all(pts.map(p =>
@@ -667,6 +708,7 @@
   async function fetchCurated(Place, found){
     const names = TRENDING[mode] || [];
     if (!names.length) return [];
+    if (mode === "food" && foodCategory && foodCategory.types) return [];   // a specific cuisine — don't inject off-cuisine favourites
     // the curated list is Raleigh-specific, and each by-name lookup is a paid Text Search —
     // so only run them when you're actually near Raleigh, and cap how many fire per load.
     if (haversineMiles(coords, CURATED_CENTER) > 45) return [];
@@ -697,7 +739,9 @@
   async function loadRestaurants(append){
     show("loading");
     if (!append){ history.length = 0; updateUndo(); }
-    document.getElementById("loading-text").textContent = append ? "Looking a little further out…" : MODES[mode].loading;
+    let base = MODES[mode].loading;
+    if (mode === "food" && foodCategory && foodCategory.types) base = "Finding " + foodCategory.label.toLowerCase() + " spots nearby…";
+    document.getElementById("loading-text").textContent = append ? "Looking a little further out…" : base;
     try {
       const { Place, SearchNearbyRankPreference } = await google.maps.importLibrary("places");
       let places = await searchAllNearby(Place, SearchNearbyRankPreference);
@@ -971,7 +1015,20 @@
     e.currentTarget.setAttribute("aria-pressed", String(fancyOn));
     rebuildQueue();
   });
-  document.getElementById("mode-food").addEventListener("click", () => { mode = "food"; setFancyVisible(true); getLocation(); });
+  function openCategories(){
+    const grid = document.getElementById("cat-grid");
+    if (!grid.childElementCount){
+      FOOD_CATS.forEach(cat => {
+        const b = document.createElement("button");
+        b.className = "cat-chip" + (cat.key === "general" ? " general" : "");
+        b.textContent = cat.label;
+        b.addEventListener("click", () => { foodCategory = cat; setFancyVisible(true); getLocation(); });
+        grid.appendChild(b);
+      });
+    }
+    show("category");
+  }
+  document.getElementById("mode-food").addEventListener("click", () => { mode = "food"; openCategories(); });
   document.getElementById("mode-coffee").addEventListener("click", () => { mode = "coffee"; setFancyVisible(false); getLocation(); });
   document.getElementById("mode-play").addEventListener("click", () => { mode = "play"; setFancyVisible(false); getLocation(); });
   document.getElementById("loc-go").addEventListener("click", searchTypedLocation);
