@@ -98,7 +98,10 @@
     border:1px solid var(--line);border-radius:13px;padding:11px 15px;cursor:pointer;
     transition:transform .14s var(--ease),background .2s,border-color .2s;touch-action:manipulation;}
   .cat-chip:active{transform:scale(.96);background:var(--surface-2);}
-  .cat-chip.general{background:linear-gradient(135deg,#2fa78d,#1c8068);border-color:transparent;color:#fff;font-weight:700;}
+  .cat-chip.sel{background:linear-gradient(135deg,#2fa78d,#1c8068);border-color:transparent;color:#fff;font-weight:700;}
+  .cat-chip.sel::before{content:"✓ ";}
+  .cat-go{margin-top:4px;}
+  #cat-screen{justify-content:flex-start;overflow-y:auto;padding-top:24px;padding-bottom:24px;}
   .mode-row{display:flex;flex-direction:column;gap:11px;width:100%;max-width:330px;}
   .mode-row .btn{width:100%;display:inline-flex;align-items:center;justify-content:center;gap:10px;padding-top:16px;padding-bottom:16px;}
   .home-links{display:flex;gap:10px;width:100%;max-width:330px;}
@@ -298,8 +301,9 @@
     <section class="screen" id="cat-screen">
       <div class="col stack-up">
         <div class="lede" style="font-size:clamp(26px,8vw,40px)">What sounds<br><em>good?</em></div>
-        <p class="sub">Pick a cuisine — or just see everything nearby.</p>
+        <p class="sub">Pick one or more cuisines — or just see everything nearby.</p>
         <div class="cat-grid" id="cat-grid"></div>
+        <button class="btn cat-go" id="cat-go">Search everything →</button>
       </div>
     </section>
 
@@ -441,10 +445,15 @@
     { key: "brunch",   label: "Breakfast & Brunch", types: ["breakfast_restaurant","brunch_restaurant"] },
   ];
   const CAT_EXCLUDE = ["fast_food_restaurant","meal_takeaway","meal_delivery"];
+  // union of the selected cuisines' place types, or null when "Everything" (none selected)
+  function foodTypes(){
+    if (mode !== "food" || !foodCats.length) return null;
+    return [...new Set(foodCats.flatMap(c => c.types || []))];
+  }
 
   // ---------- state ----------
   let mode = "food";
-  let foodCategory = null;    // chosen cuisine for "Grab a bite", or null/general = Everything
+  let foodCats = [];          // selected cuisines for "Grab a bite" ([] = Everything)
   let coords = null;          // {lat, lng}
   let radiusIdx = 0;
   let allLoaded = [];         // every place from the last search (sorted nearest-first)
@@ -765,7 +774,8 @@
     const m = MODES[mode];
     // a chosen cuisine narrows the search to its place types (still excluding fast food)
     let inc = m.includedTypes, exc = m.excludedPrimaryTypes;
-    if (mode === "food" && foodCategory && foodCategory.types){ inc = foodCategory.types; exc = CAT_EXCLUDE; }
+    const ftypes = foodTypes();
+    if (ftypes){ inc = ftypes; exc = CAT_EXCLUDE; }
     const fields = ["id","displayName","location","photos","rating","userRatingCount",
                     "primaryTypeDisplayName","editorialSummary","priceLevel","priceRange",
                     "websiteURI","googleMapsURI","regularOpeningHours","utcOffsetMinutes"];
@@ -805,7 +815,7 @@
   async function fetchCurated(Place, found){
     const names = [...new Set([...(TRENDING[mode] || []), ...(NEW_OPENINGS[mode] || [])])];
     if (!names.length) return [];
-    if (mode === "food" && foodCategory && foodCategory.types) return [];   // a specific cuisine — don't inject off-cuisine favourites
+    if (foodTypes()) return [];   // a specific cuisine — don't inject off-cuisine favourites
     // the curated list is Raleigh-specific, and each by-name lookup is a paid Text Search —
     // so only run them when you're actually near Raleigh, and cap how many fire per load.
     if (haversineMiles(coords, CURATED_CENTER) > 45) return [];
@@ -841,7 +851,9 @@
     show("loading");
     if (!append){ history.length = 0; updateUndo(); }
     let base = MODES[mode].loading;
-    if (mode === "food" && foodCategory && foodCategory.types) base = "Finding " + foodCategory.label.toLowerCase() + " spots nearby…";
+    if (foodTypes()) base = foodCats.length <= 2
+      ? "Finding " + foodCats.map(c => c.label.toLowerCase()).join(" & ") + " spots nearby…"
+      : "Finding your picks nearby…";
     document.getElementById("loading-text").textContent = append ? "Looking a little further out…" : base;
     try {
       const { Place, SearchNearbyRankPreference } = await google.maps.importLibrary("places");
@@ -1113,7 +1125,8 @@
     show("match");
   }
 
-  // 🎲 "Pick for us" — randomly land on one of the current (filtered) spots, with a quick roll
+  // 🎲 "Pick for us" — randomly land on one of the current (filtered) spots, with a roll
+  // that starts fast and slows down before settling (like a real dice/wheel).
   let rolling = null;
   function pickForUs(){
     if (rolling) return;
@@ -1125,16 +1138,21 @@
     const burst = document.querySelector(".match-burst");
     const finalBurst = burst.textContent;
     burst.textContent = "🎲 Picking…";
-    let ticks = 0;
-    rolling = setInterval(() => {
+    const total = 26;                               // ~3s overall, decelerating
+    let i = 0;
+    const step = () => {
       nameEl.textContent = pool[Math.floor(Math.random() * pool.length)].name;
-      if (++ticks >= 12){
-        clearInterval(rolling); rolling = null;
+      if (++i >= total){
+        rolling = null;
         nameEl.textContent = choice.name;
         burst.textContent = finalBurst;
         burst.classList.remove("pop"); void burst.offsetWidth; burst.classList.add("pop");
+        return;
       }
-    }, 70);
+      const t = i / total;
+      rolling = setTimeout(step, 45 + Math.round(200 * t * t));   // 45ms → ~245ms ease-out
+    };
+    rolling = setTimeout(step, 45);
   }
 
   // ---------- error / empty ----------
@@ -1224,19 +1242,40 @@
     chip.setAttribute("aria-pressed", String(maxMiles > 0));
     rebuildQueue();
   });
+  function syncCatChips(){
+    document.querySelectorAll("#cat-grid .cat-chip").forEach(b => {
+      const key = b.dataset.key;
+      const on = key === "general" ? foodCats.length === 0 : foodCats.some(c => c.key === key);
+      b.classList.toggle("sel", on);
+    });
+    document.getElementById("cat-go").textContent = foodCats.length
+      ? `Search ${foodCats.length} ${foodCats.length > 1 ? "cuisines" : "cuisine"} →`
+      : "Search everything →";
+  }
+  function toggleCat(cat){
+    if (cat.key === "general"){ foodCats = []; }                 // "Everything" clears all
+    else {
+      const i = foodCats.findIndex(c => c.key === cat.key);
+      if (i >= 0) foodCats.splice(i, 1); else foodCats.push(cat);
+    }
+    syncCatChips();
+  }
   function openCategories(){
     const grid = document.getElementById("cat-grid");
     if (!grid.childElementCount){
       FOOD_CATS.forEach(cat => {
         const b = document.createElement("button");
-        b.className = "cat-chip" + (cat.key === "general" ? " general" : "");
+        b.className = "cat-chip";
+        b.dataset.key = cat.key;
         b.textContent = cat.label;
-        b.addEventListener("click", () => { foodCategory = cat; setFancyVisible(true); getLocation(); });
+        b.addEventListener("click", () => toggleCat(cat));
         grid.appendChild(b);
       });
     }
+    syncCatChips();
     show("category");
   }
+  document.getElementById("cat-go").addEventListener("click", () => { setFancyVisible(true); getLocation(); });
   document.getElementById("mode-food").addEventListener("click", () => { mode = "food"; openCategories(); });
   document.getElementById("mode-coffee").addEventListener("click", () => { mode = "coffee"; setFancyVisible(false); getLocation(); });
   document.getElementById("mode-play").addEventListener("click", () => { mode = "play"; setFancyVisible(false); getLocation(); });
