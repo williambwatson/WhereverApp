@@ -101,6 +101,8 @@
   .cat-chip.general{background:linear-gradient(135deg,#2fa78d,#1c8068);border-color:transparent;color:#fff;font-weight:700;}
   .mode-row{display:flex;flex-direction:column;gap:11px;width:100%;max-width:330px;}
   .mode-row .btn{width:100%;display:inline-flex;align-items:center;justify-content:center;gap:10px;padding-top:16px;padding-bottom:16px;}
+  .home-links{display:flex;gap:10px;width:100%;max-width:330px;}
+  .btn.mini{flex:1;font-size:13.5px;font-weight:600;padding:11px 12px;text-align:center;}
   .manual{display:flex;flex-direction:column;gap:10px;width:100%;max-width:330px;}
   .manual input{font-family:"Manrope";font-size:16px;color:var(--text);background:var(--surface);
     border:1px solid var(--line);border-radius:12px;padding:13px 16px;width:100%;outline:none;text-align:center;}
@@ -270,9 +272,11 @@
             <span id="loc-status-label"></span>
             <button class="linklike" id="loc-change">change</button>
           </div>
-          <button class="linklike" id="saved-open" hidden>★ Saved spots</button>
+        </div>
+        <div class="home-links">
+          <button class="btn ghost mini" id="saved-open">★ Saved spots</button>
           <!-- community: users email new spots to add. Swap href for a forms.gle URL later if preferred. -->
-          <a class="linklike" id="suggest-spot" href="mailto:williambwatson05@gmail.com?subject=Wherever%3A%20suggest%20a%20spot&body=Place%20name%3A%0ACity%2Farea%3A%0AWhy%20it%27s%20great%3A%0A">Know a great new spot? Suggest it →</a>
+          <a class="btn ghost mini" id="suggest-spot" href="mailto:williambwatson05@gmail.com?subject=Wherever%3A%20suggest%20a%20spot&body=Place%20name%3A%0ACity%2Farea%3A%0AWhy%20it%27s%20great%3A%0A">✉ Suggest a spot</a>
         </div>
       </div>
     </section>
@@ -296,7 +300,6 @@
       <div class="filter-row" id="filter-row">
         <button class="filter-chip" id="open-chip" aria-pressed="false">🕐 Open now</button>
         <button class="filter-chip" id="dist-chip" aria-pressed="false">📍 Any distance</button>
-        <button class="filter-chip food-only" id="veg-chip" aria-pressed="false">🌱 Veg-friendly</button>
         <button class="filter-chip food-only" id="fancy-chip" aria-pressed="false">✦ Fancy</button>
       </div>
       <div class="deck" id="deck"></div>
@@ -428,7 +431,6 @@
   let allLoaded = [];         // every place from the last search (sorted nearest-first)
   let queue = [];             // places still to show, after filters
   let fancyOn = false;        // "Fancy" filter toggle
-  let vegOn = false;          // "Veg-friendly" filter (best-effort)
   let openNowOn = false;      // "Open now" filter
   let maxMiles = 0;           // distance cap (0 = any)
   const DIST_STEPS = [0, 1, 3, 5];
@@ -509,13 +511,6 @@
   function truncate(t, n){ t = (t||"").trim(); return t.length > n ? t.slice(0, n).trim() + "…" : t; }
   function esc(s){ const d = document.createElement("div"); d.textContent = s ?? ""; return d.innerHTML; }
 
-  // best-effort "vegetarian/vegan-friendly" — Google has no reliable flag, so match veg signals
-  // in the name/cuisine/description plus cuisines that dependably have strong veg options.
-  function isVeg(r){
-    const hay = ((r.cuisine || "") + " " + (r.name || "") + " " + (r.desc || "")).toLowerCase();
-    return /(vegan|vegetarian|plant.?based|plant.?forward|meat.?free|veggie)/.test(hay)
-      || /(indian|thai|mediterranean|middle.?eastern|ethiopian|falafel|lebanese|buddhist)/.test(hay);
-  }
   // is the place open right now? returns true / false / null(unknown) from regularOpeningHours.
   function isOpenNow(place){
     const periods = place.regularOpeningHours && place.regularOpeningHours.periods;
@@ -903,7 +898,6 @@
     const available = allLoaded.filter(r => !seen.has(r.name));
     queue = available.filter(r =>
       (!fancyOn || isFancy(r)) &&
-      (!vegOn || isVeg(r)) &&
       (!openNowOn || r.openNow !== false) &&     // keep unknown-hours; drop only confirmed-closed
       (!maxMiles || r.dist <= maxMiles)
     );
@@ -915,7 +909,7 @@
     }
     buildDeck();
   }
-  function filtersActive(){ return fancyOn || vegOn || openNowOn || maxMiles > 0; }
+  function filtersActive(){ return fancyOn || openNowOn || maxMiles > 0; }
 
   // "swipe forever": when you run out, quietly widen the search until the largest radius
   function needMore(){
@@ -1120,8 +1114,7 @@
   }
   function updateSavedUI(){
     const link = document.getElementById("saved-open");
-    link.textContent = `★ Saved spots (${savedSpots.length})`;
-    link.hidden = savedSpots.length === 0;
+    link.textContent = savedSpots.length ? `★ Saved spots (${savedSpots.length})` : "★ Saved spots";
   }
   function renderSaved(){
     const wrap = document.getElementById("saved-list");
@@ -1149,14 +1142,12 @@
   }
 
   // ---------- wiring ----------
-  // Fancy + Veg only make sense for food; Open-now + distance apply to every mode.
+  // Fancy only makes sense for food; Open-now + distance apply to every mode.
   function setFancyVisible(v){
     document.querySelectorAll(".filter-chip.food-only").forEach(c => c.style.display = v ? "" : "none");
     if (!v){
-      fancyOn = false; vegOn = false;
-      ["fancy-chip", "veg-chip"].forEach(id => {
-        const c = document.getElementById(id); c.classList.remove("on"); c.setAttribute("aria-pressed", "false");
-      });
+      fancyOn = false;
+      const c = document.getElementById("fancy-chip"); c.classList.remove("on"); c.setAttribute("aria-pressed", "false");
     }
   }
   function bindToggle(id, get, set){
@@ -1168,7 +1159,6 @@
     });
   }
   bindToggle("fancy-chip", () => fancyOn, v => fancyOn = v);
-  bindToggle("veg-chip", () => vegOn, v => vegOn = v);
   bindToggle("open-chip", () => openNowOn, v => openNowOn = v);
   document.getElementById("dist-chip").addEventListener("click", (e) => {
     maxMiles = DIST_STEPS[(DIST_STEPS.indexOf(maxMiles) + 1) % DIST_STEPS.length];
