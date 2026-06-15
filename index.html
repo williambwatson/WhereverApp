@@ -574,7 +574,12 @@
       "j betski","the oxford","royale","mulino","oakleaf","mandolin","st. roch","jolie","mami nora","ajja"],
     coffee: ["pine state","little native","cup a joe","aversboro","deja brew","raleigh coffee co",
       "jubala","sola coffee","42 and lawrence","the morning times"],
-    bars: [],
+    // 🍸 Raleigh bars locals love for a fun night — cocktail bars, speakeasies, dives & breweries
+    // (from r/raleigh, WALTER, RALtoday, This Is Raleigh, Raleigh Mag's reader picks)
+    bars: ["fox liquor","the haymaker","blind barbour","william and company","watts and ward",
+      "foundation","c grace","ruby deluxe","highgarden","the architect","sidebar","crunkleton",
+      "dram and draught","raleigh beer garden","crank arm","trophy","raleigh times","the cardinal",
+      "lucky b","neptunes","mitch","slim s","pour house","bittersweet","whiskey kitchen"],
   };
 
   // ✨ recently-opened & buzzworthy spots (Raleigh to start), curated from local press
@@ -583,6 +588,7 @@
   const NEW_OPENINGS = {
     food: ["big cat","botiwalla","kokoro","mala pata"],
     coffee: ["321 coffee","cottage coffee"],
+    bars: ["capulet","bend bar","stella","dry cleaners","garden bar","sous terre","natural science","winchester"],
   };
   function normName(s){ return (s || "").toLowerCase().replace(/&/g, " and ").replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim(); }
   function isTrending(name, m){
