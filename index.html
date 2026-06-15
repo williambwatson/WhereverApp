@@ -37,6 +37,9 @@
 
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
   [hidden]{display:none !important;}   /* make the hidden attribute win over class display */
+  /* stop iOS Safari from auto-inflating font sizes in text-heavy blocks (it was
+     blowing up the card name on some iPhones) — keep our sizes exactly as authored */
+  html{-webkit-text-size-adjust:100%;text-size-adjust:100%;}
   html,body{height:100%;}
   body{
     font-family:"Manrope",system-ui,sans-serif;
@@ -154,11 +157,16 @@
     backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);text-shadow:0 1px 4px rgba(0,0,0,.5);}
   .rating em{color:var(--text-dim);font-style:normal;font-weight:500;font-size:12px;}
 
-  .card-body{position:absolute;left:0;right:0;bottom:0;z-index:2;padding:20px 22px 22px;display:flex;flex-direction:column;gap:8px;}
-  .card h2{font-family:"Fraunces";font-weight:600;font-size:clamp(25px,7vw,34px);line-height:1.08;letter-spacing:-.01em;text-shadow:0 2px 16px rgba(0,0,0,.7);}
+  /* cap the text block and clip overflow so the name (at the top) is always visible —
+     on small phones / long text the review at the bottom clips instead of the name */
+  .card-body{position:absolute;left:0;right:0;bottom:0;z-index:2;padding:20px 22px 22px;display:flex;flex-direction:column;gap:7px;max-height:72%;overflow:hidden;}
+  .card-body>*{flex:0 0 auto;}   /* never shrink the name to fit a long review — clip the review instead */
+  .card h2{font-family:"Fraunces";font-weight:600;font-size:clamp(22px,6.2vw,32px);line-height:1.08;letter-spacing:-.01em;text-shadow:0 2px 16px rgba(0,0,0,.7);
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
   .card .meta{display:flex;flex-wrap:wrap;gap:6px 14px;color:var(--text);font-size:13.5px;text-shadow:0 1px 8px rgba(0,0,0,.6);}
   .card .meta b{color:var(--accent);font-weight:700;}
-  .card .desc{font-size:13.5px;line-height:1.5;color:#dde6f0;text-shadow:0 1px 8px rgba(0,0,0,.6);}
+  .card .desc{font-size:13.5px;line-height:1.5;color:#dde6f0;text-shadow:0 1px 8px rgba(0,0,0,.6);
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
   .card .review{font-size:13px;line-height:1.5;color:#cfd9e6;font-style:italic;
     border-left:2px solid var(--gold);padding-left:10px;margin-top:2px;display:none;text-shadow:0 1px 6px rgba(0,0,0,.5);}
   .card .review .rev-author{display:block;font-style:normal;font-size:11.5px;color:var(--text-dim);margin-top:3px;}
