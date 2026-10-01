@@ -571,7 +571,7 @@
       "mojoe","player's retreat","lilly's pizza","sitti","caffe luna","cantina 18","david's dumpling",
       "glenwood grill","midtown grille","stanbury","capital club 16","the cortez","calavera","coquette",
       "second empire","angus barn","the fiction kitchen","tupelo honey","42nd street oyster","centro",
-      "j betski","the oxford","royale","mulino","oakleaf","mandolin","st. roch","jolie","mami nora","ajja","mala pata"],
+      "j betski","the oxford","royale","mulino","oakleaf","mandolin","st. roch","jolie","mami nora","ajja","mala pata","big cat"],
     coffee: ["pine state","little native","cup a joe","aversboro","deja brew","raleigh coffee co",
       "jubala","sola coffee","42 and lawrence","the morning times","321 coffee","paul and jack","newsagent","biddy thomas"],
     // 🍸 Raleigh bars locals love for a fun night — cocktail bars, speakeasies, dives & breweries
@@ -580,7 +580,7 @@
       "foundation","c grace","ruby deluxe","highgarden","the architect","sidebar","crunkleton",
       "dram and draught","raleigh beer garden","crank arm","trophy","raleigh times","the cardinal",
       "lucky b","neptunes","mitch","slim s","pour house","bittersweet","whiskey kitchen",
-      "capulet","bend bar","bar marigold","stella","dry cleaners","sous terre",
+      "capulet","bend bar","bar marigold","stella","dry cleaners","sous terre","rosebud cocktail",
       "natural science","winchester",
       // wine bars
       "cellar 72","barcelona","vita vite","hippo wine","seaboard wine","napa bistro",
@@ -592,15 +592,16 @@
   // (WALTER, Axios Raleigh, News & Observer, RALtoday). Same normName substring match as
   // TRENDING. A monthly background job refreshes these and prunes/promotes after ~6 months.
   const NEW_OPENINGS = {
-    food: ["big cat","botiwalla","kokoro","monya","mikey s pizzeria","ika raleigh","mezcalito","lutra",
+    food: ["botiwalla","kokoro","monya","mikey s pizzeria","ika raleigh","mezcalito","lutra",
       "shinmai moku","inka grille","benchwarmers","lloyd s full service","east of texas","little bull",
       "momo station","la santa","prime stq","lewis barbecue","sunflower s cafe","cora kitchen",
-      "pranzo","uwa sushi","serratore","ala rahi","tavolo italian","melao colombian"],
+      "pranzo","uwa sushi","serratore","ala rahi","tavolo italian","melao colombian",
+      "good graces","barrio tacos","tomi sushi","arepa culture","gallicchio","lawrence barb","matsumoto","shinmai kumo"],
     coffee: ["cottage coffee","popovers cafe","left hook","drift coffee","dupre s coffee",
-      "la vita dolce","lina s bakery","cafe royale"],
-    bars: ["songbird","bright side","crooked hammock","rosebud cocktail","wren rooftop","third house",
+      "la vita dolce","lina s bakery","cafe royale","beignets and brew"],
+    bars: ["songbird","bright side","crooked hammock","wren rooftop","third house",
       "voodoo brewing","red phone booth","clouds brewing","postino","arcane books","noco brews",
-      "saint pierre","mr henry s"],
+      "saint pierre","mr henry s","plain jane s","saint mars","basic brewing"],
   };
   function normName(s){ return (s || "").toLowerCase().replace(/&/g, " and ").replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim(); }
   function isTrending(name, m){
